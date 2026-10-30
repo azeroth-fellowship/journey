@@ -1,4 +1,10 @@
-# Azeroth Journey
+<h1 align="center"><img src="docs/assets/banner.png" alt="Azeroth Journey: a journal of your World of Warcraft adventures" width="100%"></h1>
+
+<p align="center">
+  <a href="https://github.com/azeroth-fellowship/journey/actions/workflows/ci.yml"><img src="https://github.com/azeroth-fellowship/journey/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-e0b252" alt="License: GPL-3.0-only"></a>
+  <img src="https://img.shields.io/badge/status-pre--release-8a8f9c" alt="Status: pre-release">
+</p>
 
 An adventure journal and social platform for World of Warcraft characters. A small addon records what your character
 does, a desktop companion uploads it, and the website turns it into a journey you can read and share.
@@ -6,6 +12,14 @@ does, a desktop companion uploads it, and the website turns it into a journey yo
 This repository holds the open-source parts. The website and API are operated from a separate private repository.
 
 Website: <https://TODO-website-url.example> (placeholder, not live yet)
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["Addon<br/>records events in-game"] -->|SavedVariables| B["Desktop companion<br/>parses, signs, uploads"]
+    B -->|signed requests| C[("Website and API<br/>journeys, friends, maps")]
+```
 
 ## Components
 
