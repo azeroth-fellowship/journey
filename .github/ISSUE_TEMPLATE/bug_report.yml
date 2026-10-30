@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in the addon, the companion or the shared packages does not work
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [Addon, Companion (desktop), contracts / api-client, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Companion version from Diagnostics, or the addon version from the .toc
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: report
+    attributes:
+      label: Diagnostics report
+      description: Use "Copy report" in the companion's Diagnostics. It does not contain tokens or keys; please still check it before pasting.
+      render: text

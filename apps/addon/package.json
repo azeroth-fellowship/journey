@@ -1,0 +1,10 @@
+{
+  "name": "@azeroth/addon",
+  "version": "0.0.0",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "scripts": {
+    "typecheck": "echo \"wowlua check (requires wowlua CLI)\"",
+    "test": "echo \"wowlua test (requires wowlua CLI)\""
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@azeroth/api-client",
+  "version": "0.0.0",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@azeroth/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^4.0.0"
+  }
+}

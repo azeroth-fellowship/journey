@@ -1,0 +1,173 @@
+name: Release addon
+
+# Tag `addon-v<semver>` (see docs/releasing.md). Independent from the companion (`companion-v*`).
+on:
+  push:
+    tags: ['addon-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, e.g. addon-v0.1.0'
+        required: true
+        type: string
+      dry_run:
+        description: 'Build and zip only: upload the zip as a workflow artifact, no GitHub Release, no CurseForge/Wago'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-addon-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  ADDON_DIR: apps/addon
+  # Must equal `addon.title` in wowlua.json: WoW needs the folder, the .toc and the zip's root folder to share one name.
+  ADDON_NAME: AzerothJourney
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0 # full history + tags for the changelog
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Tag matches wowlua.json
+        id: v
+        run: |
+          if [[ ! "$TAG" =~ ^addon-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not of the form addon-v<semver> (e.g. addon-v0.1.0)."; exit 1
+          fi
+          version="${TAG#addon-v}"
+          manifest="$(node -p "require('./$ADDON_DIR/wowlua.json').package.version")"
+          if [ "$manifest" != "$version" ]; then
+            echo "::error::Tag $TAG is version $version but $ADDON_DIR/wowlua.json has package.version $manifest. Fix wowlua.json, commit, delete the tag and re-tag."; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
+
+      # UNVERIFIED in CI: the npm package name `wowlua` and its Linux binary. Locally `wowlua 0.13.6` works on Windows.
+      # `cargo install wowlua` is the documented alternative (slow: compiles from source).
+      - name: Install wowlua
+        run: |
+          npm i -g 'wowlua@~0.13' || { echo "::warning::npm install failed, falling back to cargo install wowlua"; cargo install wowlua --locked; }
+          wowlua --version
+
+      - name: Check and test
+        working-directory: ${{ env.ADDON_DIR }}
+        run: |
+          wowlua check
+          wowlua test
+
+      - name: Build (release profile)
+        working-directory: ${{ env.ADDON_DIR }}
+        run: |
+          # wowlua only treats a build as a plain release (no -alpha+<sha> suffix) when a `v<version>` tag sits at
+          # HEAD; our `addon-v<version>` tag is not recognised. A local, never-pushed alias tag fixes that.
+          git tag -f "v${{ steps.v.outputs.version }}" HEAD
+          git status --porcelain --untracked-files=no | grep . && { echo "::error::Working tree is dirty; wowlua would build an alpha."; exit 1; } || true
+          wowlua build --release --locked --out "$RUNNER_TEMP/stage/$ADDON_NAME"
+          ls -la "$RUNNER_TEMP/stage/$ADDON_NAME"
+
+      - name: Verify the built .toc
+        run: |
+          toc="$RUNNER_TEMP/stage/$ADDON_NAME/$ADDON_NAME.toc"
+          [ -f "$toc" ] || { echo "::error::$toc was not produced. wowlua's output layout may have changed."; ls -R "$RUNNER_TEMP/stage"; exit 1; }
+          cat "$toc"
+          built="$(sed -n 's/^## Version:[[:space:]]*//p' "$toc" | tr -d '\r')"
+          if [ "$built" != "${{ steps.v.outputs.version }}" ]; then
+            echo "::error::Built .toc says '## Version: $built' but the tag is ${{ steps.v.outputs.version }}. (An -alpha+<sha> suffix means wowlua did not see a clean release checkout.)"; exit 1
+          fi
+          grep -q '^## SavedVariables: AzerothJourneyDB' "$toc" || { echo "::error::.toc lacks '## SavedVariables: AzerothJourneyDB'; the companion reads that file."; exit 1; }
+          grep -q '^## Interface:' "$toc" || { echo "::error::.toc lacks '## Interface:'."; exit 1; }
+
+      - name: Zip (folder at the zip root, as WoW requires)
+        id: zip
+        run: |
+          zip_name="$ADDON_NAME-${{ steps.v.outputs.version }}.zip"
+          (cd "$RUNNER_TEMP/stage" && zip -r -X "$GITHUB_WORKSPACE/$zip_name" "$ADDON_NAME" -x '*/.maps/*' -x '*/.DS_Store')
+          unzip -l "$zip_name"
+          unzip -Z1 "$zip_name" | grep -qx "$ADDON_NAME/$ADDON_NAME.toc" || { echo "::error::zip does not contain $ADDON_NAME/$ADDON_NAME.toc at its root"; exit 1; }
+          if unzip -Z1 "$zip_name" | grep -v "^$ADDON_NAME/" | grep .; then echo "::error::zip has entries outside $ADDON_NAME/"; exit 1; fi
+          echo "name=$zip_name" >> "$GITHUB_OUTPUT"
+
+      - name: Changelog
+        run: bash .github/scripts/changelog.sh addon-v "$ADDON_DIR" "$TAG" | tee "$RUNNER_TEMP/changelog.md"
+
+      - name: Keep the zip from a dry run
+        if: inputs.dry_run == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.name }}
+          path: ${{ steps.zip.outputs.name }}
+
+      - name: GitHub Release
+        if: inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ZIP: ${{ steps.zip.outputs.name }}
+          VERSION: ${{ steps.v.outputs.version }}
+          PRERELEASE: ${{ steps.v.outputs.prerelease }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/changelog.md"
+          else
+            flags=(); [ "$PRERELEASE" = true ] && flags+=(--prerelease) || flags+=(--latest=false)
+            gh release create "$TAG" "$ZIP" --verify-tag --title "AzerothJourney $VERSION (addon)" --notes-file "$RUNNER_TEMP/changelog.md" "${flags[@]}"
+          fi
+
+      # Optional publishing. Each step is skipped (with a notice) when its secrets/variables are not set.
+      - name: Publish to CurseForge
+        if: inputs.dry_run != true
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          CF_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          CF_GAME_VERSION_IDS: ${{ vars.CURSEFORGE_GAME_VERSION_IDS }}
+          ZIP: ${{ steps.zip.outputs.name }}
+          VERSION: ${{ steps.v.outputs.version }}
+          PRERELEASE: ${{ steps.v.outputs.prerelease }}
+        run: |
+          if [ -z "$CF_API_KEY" ] || [ -z "$CF_PROJECT_ID" ]; then
+            echo "::notice::CurseForge upload skipped (secret CF_API_KEY and variable CURSEFORGE_PROJECT_ID are not both set)."; exit 0
+          fi
+          if ! [[ "$CF_GAME_VERSION_IDS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+            echo "::warning::CurseForge upload skipped: variable CURSEFORGE_GAME_VERSION_IDS must be comma-separated numeric ids (see docs/releasing.md)."; exit 0
+          fi
+          release_type=release; [ "$PRERELEASE" = true ] && release_type=beta
+          metadata="$(jq -n --arg log "$(cat "$RUNNER_TEMP/changelog.md")" --arg name "AzerothJourney $VERSION" --arg rt "$release_type" --argjson ids "[$CF_GAME_VERSION_IDS]" \
+            '{changelog: $log, changelogType: "markdown", displayName: $name, gameVersions: $ids, releaseType: $rt}')"
+          curl --fail-with-body -sS -X POST "https://wow.curseforge.com/api/projects/$CF_PROJECT_ID/upload-file" \
+            -H "X-Api-Token: $CF_API_KEY" -F "metadata=$metadata" -F "file=@$ZIP"
+          echo
+
+      - name: Publish to Wago.io
+        if: inputs.dry_run != true
+        env:
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          WAGO_PROJECT_ID: ${{ vars.WAGO_PROJECT_ID }}
+          # Optional JSON merged into the metadata, e.g. {"supported_retail_patch":"12.0.0"}. Wago needs at least one supported_*_patch.
+          WAGO_EXTRA_METADATA: ${{ vars.WAGO_EXTRA_METADATA }}
+          ZIP: ${{ steps.zip.outputs.name }}
+          VERSION: ${{ steps.v.outputs.version }}
+          PRERELEASE: ${{ steps.v.outputs.prerelease }}
+        run: |
+          if [ -z "$WAGO_API_TOKEN" ] || [ -z "$WAGO_PROJECT_ID" ]; then
+            echo "::notice::Wago upload skipped (secret WAGO_API_TOKEN and variable WAGO_PROJECT_ID are not both set)."; exit 0
+          fi
+          stability=stable; [ "$PRERELEASE" = true ] && stability=beta
+          metadata="$(jq -n --arg log "$(cat "$RUNNER_TEMP/changelog.md")" --arg label "$VERSION" --arg st "$stability" --argjson extra "${WAGO_EXTRA_METADATA:-{\}}" \
+            '{label: $label, stability: $st, changelog: $log} + $extra')"
+          curl --fail-with-body -sS -X POST "https://addons.wago.io/api/projects/$WAGO_PROJECT_ID/version" \
+            -H "authorization: Bearer $WAGO_API_TOKEN" -H "accept: application/json" -F "metadata=$metadata" -F "file=@$ZIP"
+          echo

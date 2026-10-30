@@ -1,0 +1,20 @@
+{
+  "name": "azeroth-journey",
+  "private": true,
+  "version": "0.0.0",
+  "license": "GPL-3.0-only",
+  "description": "Azeroth Journey: the open-source WoW addon, desktop companion and shared API contracts.",
+  "repository": "github:azeroth-fellowship/journey",
+  "scripts": {
+    "build:libs": "pnpm --filter \"./packages/*\" build",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "spdx:check": "node scripts/add-spdx-headers.mjs --check"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.24.0"
+}

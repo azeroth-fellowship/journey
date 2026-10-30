@@ -1,0 +1,308 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+-- AzerothJourney addon: captures journey events into SavedVariables.
+-- Built with wowlua (camelot flavor). See project brief Phase 5.
+
+import addon from "wowlua:meta"
+import event from "wowlua:events"
+import print as chat from "wowlua:log"
+
+-- SavedVariables table (persisted by the client across sessions/reloads)
+_G.AzerothJourneyDB = _G.AzerothJourneyDB or { events = {}, sessions = {}, version = 1 }
+
+local state: any = {
+  characterId = nil,
+  sessionId = nil,
+  sessionStartedAt = nil,
+  currentZone = nil,
+  currentLevel = nil,
+  -- The dungeon/raid instance the player is inside right now: { id, name, enteredAt, difficulty, bosses, completed }.
+  instance = nil,
+}
+
+local function nowIso(): string
+  return date("!%Y-%m-%dT%H:%M:%SZ", time())
+end
+
+local function newEventId(): string
+  local count = (_G.AzerothJourneyDB.events and #_G.AzerothJourneyDB.events or 0) + 1
+  return format("evt-%s-%d", state.sessionId or "none", count)
+end
+
+local function pushEvent(typ: string, payload: any)
+  if not state.characterId then return end
+  local ev = {
+    id = newEventId(),
+    characterId = state.characterId,
+    sessionId = state.sessionId,
+    occurredAt = nowIso(),
+    type = typ,
+    source = "addon",
+    payload = payload or {},
+  }
+  _G.AzerothJourneyDB.events = _G.AzerothJourneyDB.events or {}
+  table.insert(_G.AzerothJourneyDB.events, ev)
+end
+
+-- ---------------------------------------------------------------------------
+-- Dungeons
+--
+-- GUESSWORK: WoW Forever (release 2026-11-04) is not available, so every client API below is used defensively
+-- (looked up in _G, called through pcall, nil-guarded) and none of it has run against the real client; only the
+-- wowlua emulated client (tests/main.test.wowlua) has exercised it. Verify on launch day.
+-- ---------------------------------------------------------------------------
+
+-- Calls a global API if the client has it; nil results when it is missing or errors.
+local function call(name: string, a: any?, b: any?): (any, any, any, any, any, any, any, any)
+  local fn = _G[name]
+  if type(fn) ~= "function" then return nil end
+  local ok, r1, r2, r3, r4, r5, r6, r7, r8 = pcall(fn, a, b)
+  if not ok then return nil end
+  return r1, r2, r3, r4, r5, r6, r7, r8
+end
+
+local function slug(name: string): string
+  local s = string.lower(name)
+  s = (string.gsub(s, "[^%w]+", "-"))
+  s = (string.gsub(s, "^%-+", ""))
+  s = (string.gsub(s, "%-+$", ""))
+  return s
+end
+
+-- dungeonId is the instance id (GetInstanceInfo's 8th return, a client-wide stable map id) as a string, e.g. "36".
+-- When the client reports none, the slugged name is used instead ("name:deadmines"): stable for one client
+-- language, but it differs from the id form, so a character that switches between the two shows up as two dungeons.
+local function dungeonIdOf(name: string, instanceId: any): string
+  if type(instanceId) == "number" and instanceId > 0 then return tostring(instanceId) end
+  return "name:" .. slug(name)
+end
+
+-- Dungeons and raids only; battlegrounds, arenas and scenarios are not dungeon progress.
+local function readInstance(): any
+  local inside, kind = call("IsInInstance")
+  if not inside then return nil end
+  local name, instanceType, _, difficultyName, _, _, _, instanceId = call("GetInstanceInfo")
+  kind = instanceType or kind
+  if kind ~= "party" and kind ~= "raid" then return nil end
+  if type(name) ~= "string" or name == "" then return nil end
+  local difficulty = nil
+  if type(difficultyName) == "string" and difficultyName ~= "" then difficulty = difficultyName end
+  return { id = dungeonIdOf(name, instanceId), name = name, difficulty = difficulty, kind = kind }
+end
+
+local function groupSize(): number?
+  local n = call("GetNumGroupMembers")
+  if type(n) ~= "number" then
+    local party = call("GetNumPartyMembers")
+    if type(party) == "number" then n = party + 1 end
+  end
+  if type(n) ~= "number" then return nil end
+  if n < 1 then n = 1 end
+  return n
+end
+
+-- The open instance survives /reload and logout in the SavedVariables (per character), so a reload inside a dungeon
+-- does not look like leaving and re-entering it.
+local function saveInstance()
+  _G.AzerothJourneyDB.activeInstances = _G.AzerothJourneyDB.activeInstances or {}
+  local cur = state.instance
+  _G.AzerothJourneyDB.activeInstances[state.characterId] = cur and { id = cur.id, name = cur.name, enteredAt = cur.enteredAt } or nil
+end
+
+local function leaveInstance(prev: any, withDuration: boolean)
+  local payload: any = { dungeonId = prev.id, dungeonName = prev.name }
+  if withDuration and type(prev.enteredAt) == "number" then
+    payload.durationSeconds = math.max(0, time() - prev.enteredAt)
+  end
+  pushEvent("dungeon_left", payload)
+end
+
+-- Compares where the player is with what we last knew and emits dungeon_entered / dungeon_left.
+local function syncInstance()
+  if not state.characterId then return end
+  local cur = readInstance()
+  local prev = state.instance
+  if prev and cur and prev.id == cur.id then return end
+  if prev then
+    leaveInstance(prev, true)
+    state.instance = nil
+  end
+  local saved = _G.AzerothJourneyDB.activeInstances and _G.AzerothJourneyDB.activeInstances[state.characterId]
+  if cur then
+    if saved and saved.id == cur.id and not prev then
+      -- reload / relog inside the same instance: resume, do not announce it again
+      cur.enteredAt = saved.enteredAt
+    else
+      if saved and not prev then leaveInstance(saved, false) end -- the session ended inside another instance
+      cur.enteredAt = time()
+      pushEvent("dungeon_entered", { dungeonId = cur.id, dungeonName = cur.name, difficulty = cur.difficulty, partySize = groupSize() })
+    end
+    cur.bosses = {}
+    state.instance = cur
+  elseif saved and not prev then
+    leaveInstance(saved, false) -- logged out inside, back in the open world now
+  end
+  saveInstance()
+end
+
+-- One kill per boss name per visit (BOSS_KILL, ENCOUNTER_END and the combat-log fallback may all report it).
+local function bossKilled(name: any, encounterId: any)
+  local inst = state.instance
+  if not inst or type(name) ~= "string" or name == "" then return end
+  local key = string.lower(name)
+  if inst.bosses[key] then return end
+  inst.bosses[key] = true
+  local payload: any = { dungeonId = inst.id, dungeonName = inst.name, bossName = name }
+  if encounterId ~= nil then payload.encounterId = tostring(encounterId) end
+  pushEvent("boss_killed", payload)
+end
+
+-- Only an explicit completion signal from the client counts; the API/web derive "completed" from boss kills otherwise.
+local function dungeonCompleted()
+  local inst = state.instance
+  if not inst or inst.completed then return end
+  inst.completed = true
+  pushEvent("dungeon_completed", { dungeonId = inst.id, dungeonName = inst.name, difficulty = inst.difficulty })
+end
+
+local function startSession()
+  state.sessionId = format("sess-%s-%s", state.characterId or "x", nowIso())
+  state.sessionStartedAt = nowIso()
+  state.currentZone = GetZoneText()
+  state.currentLevel = UnitLevel("player")
+  pushEvent("session_started", { zone = state.currentZone, level = state.currentLevel })
+end
+
+local function endSession(reason: string?)
+  pushEvent("session_ended", { reason = reason or "logout", zone = GetZoneText(), level = UnitLevel("player") })
+  state.sessionId = nil
+end
+
+@event("PLAYER_LOGIN")
+local function onLogin()
+  -- UnitName returns no realm for a same-realm player, so ask for the realm explicitly.
+  local name = UnitName("player")
+  local realm = GetRealmName()
+  state.characterId = format("%s-%s", name or "unknown", realm or "realm")
+  -- Identity the companion needs to register the character (class/race are the stable English tokens).
+  local _, classFile = UnitClass("player")
+  local _, raceFile = UnitRace("player")
+  _G.AzerothJourneyDB.characters = _G.AzerothJourneyDB.characters or {}
+  _G.AzerothJourneyDB.characters[state.characterId] = {
+    name = name, realm = realm, class = classFile, race = raceFile, level = UnitLevel("player"),
+  }
+  startSession()
+  chat(format("%s loaded", addon.title))
+end
+
+@event("PLAYER_LOGOUT")
+local function onLogout()
+  endSession("logout")
+end
+
+@event("PLAYER_LEVEL_UP")
+local function onLevelUp(newLevel: number)
+  local from = state.currentLevel or (newLevel - 1)
+  state.currentLevel = newLevel
+  pushEvent("level_up", { fromLevel = from, toLevel = newLevel, zone = GetZoneText() })
+end
+
+@event("PLAYER_ENTERING_WORLD")
+local function onEnteringWorld()
+  syncInstance()
+end
+
+@event("ZONE_CHANGED_NEW_AREA")
+local function onZoneChanged()
+  syncInstance()
+  local newZone = GetZoneText()
+  if newZone and newZone ~= state.currentZone then
+    pushEvent("zone_changed", { fromZone = state.currentZone, toZone = newZone })
+    state.currentZone = newZone
+  end
+end
+
+@event("QUEST_TURNED_IN")
+local function onQuestTurnedIn(questId: any, xpReward: any)
+  local payload: any = { questId = tostring(questId), questName = "Quest " .. tostring(questId), zone = GetZoneText(), xpGained = xpReward }
+  local inst = state.instance
+  if inst then
+    payload.dungeonId = inst.id
+    payload.dungeonName = inst.name
+  end
+  pushEvent("quest_completed", payload)
+end
+
+-- Events that only some clients have. RegisterEvent is pcall'd (some clients raise on unknown events), but others
+-- accept any name silently, so a registration succeeding proves nothing; handlers tolerate never being called.
+local optional = CreateFrame("Frame")
+
+local function tryRegister(eventName: string)
+  pcall(function() optional:RegisterEvent(eventName) end)
+end
+
+-- EXPERIMENTAL fallback for clients without BOSS_KILL / ENCOUNTER_END (the encounter API is the hint they exist):
+-- a unit that dies while it can be seen as a "boss" unit counts as a boss kill. The dead unit is matched by GUID
+-- against boss1-4/target/focus/mouseover; boss = classification "worldboss", or "elite" with level -1 (??).
+-- Misses bosses nobody targets, and what counts as a boss may be different in this client.
+local BOSS_TOKENS = { "boss1", "boss2", "boss3", "boss4", "target", "focus", "mouseover" }
+
+local function bossNameForGuid(guid: any): string?
+  if not guid then return nil end
+  for _, token in ipairs(BOSS_TOKENS) do
+    local g = call("UnitGUID", token)
+    if g and g == guid then
+      local class = call("UnitClassification", token)
+      local isBoss = class == "worldboss" or (class == "elite" and call("UnitLevel", token) == -1)
+      if not isBoss then return nil end
+      return (call("UnitName", token))
+    end
+  end
+  return nil
+end
+
+local function onCombatLog()
+  if not state.instance then return end
+  local gci = _G.CombatLogGetCurrentEventInfo
+  if type(gci) ~= "function" then return end
+  local ok, _, subevent, _, _, _, _, _, destGuid = pcall(gci)
+  if not ok then return end
+  if subevent ~= "UNIT_DIED" and subevent ~= "PARTY_KILL" then return end
+  bossKilled(bossNameForGuid(destGuid), nil)
+end
+
+local encounterEventsLikely = type(_G.IsEncounterInProgress) == "function" or type(_G.C_InstanceEncounter) == "table"
+
+optional:SetScript("OnEvent", function(self, ev, a1, a2, a3, a4, a5)
+  if ev == "BOSS_KILL" then
+    bossKilled(a2, a1)
+  elseif ev == "ENCOUNTER_END" then
+    if a5 == 1 or a5 == true then bossKilled(a2, a1) end
+  elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
+    onCombatLog()
+  elseif ev == "LFG_COMPLETION_REWARD" then
+    -- GUESS: the dungeon finder's "dungeon complete" signal; a client without a finder never fires it.
+    dungeonCompleted()
+  end
+end)
+tryRegister("BOSS_KILL")
+tryRegister("ENCOUNTER_END")
+tryRegister("LFG_COMPLETION_REWARD")
+if not encounterEventsLikely then tryRegister("COMBAT_LOG_EVENT_UNFILTERED") end
+
+-- Location sampling timer
+local sampler = CreateFrame("Frame")
+local elapsed = 0
+local SAMPLE_INTERVAL = 60
+sampler:SetScript("OnUpdate", function(self, dt)
+  if not state.sessionId then return end
+  elapsed = elapsed + dt
+  if elapsed >= SAMPLE_INTERVAL then
+    elapsed = 0
+    local gmpp = _G.GetPlayerMapPosition
+    local x, y = nil, nil
+    if gmpp then
+      x, y = gmpp("player")
+    end
+    pushEvent("location", { zone = GetZoneText(), x = x, y = y })
+  end
+end)

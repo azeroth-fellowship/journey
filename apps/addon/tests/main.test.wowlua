@@ -1,0 +1,183 @@
+-- SPDX-License-Identifier: GPL-3.0-only
+import test, expect, beforeEach from "wowlua:test"
+import fireEvent, enterInstance, leaveInstance, startEncounter, endEncounter, advanceTime, reloadUI, reloads from "wowlua:mock"
+
+local function eventsOf(typ: string): any[]
+  local out: any[] = {}
+  for _, e in ipairs(_G.AzerothJourneyDB.events) do
+    if e.type == typ then table.insert(out, e) end
+  end
+  return out
+end
+
+-- The client loads a new area (PLAYER_ENTERING_WORLD) after moving into or out of an instance; the emulator does not.
+local function goInto(kind: string, opts: any)
+  enterInstance(kind, opts)
+  fireEvent("PLAYER_ENTERING_WORLD", false, false)
+end
+
+local function goOut()
+  leaveInstance()
+  fireEvent("PLAYER_ENTERING_WORLD", false, false)
+end
+
+@beforeEach
+local function fresh()
+  if reloads() > 0 then return end -- the test runs again from the top after reloadUI(); keep the world as the reload left it
+  goOut()
+  _G.AzerothJourneyDB.events = {}
+end
+
+@test("addon loads without error")
+local function loads()
+  -- Smoke test: module loads and SavedVariables table exists
+  expect(_G.AzerothJourneyDB).toBeTruthy()
+end
+
+@test("open-world play emits no dungeon events")
+local function openWorld()
+  fireEvent("QUEST_TURNED_IN", 55, 100, 10)
+  local quests = eventsOf("quest_completed")
+  expect(#quests).toBe(1)
+  expect(quests[1].payload.questId).toBe("55")
+  expect(quests[1].payload.dungeonId).toBeNil()
+  expect(#eventsOf("dungeon_entered")).toBe(0)
+  expect(#eventsOf("dungeon_left")).toBe(0)
+end
+
+@test("entering and leaving a dungeon emits dungeon_entered and dungeon_left with a duration")
+local function enterAndLeave()
+  goInto("party", { name = "The Deadmines", instanceID = 36, difficultyName = "Normal", maxPlayers = 5 })
+  local entered = eventsOf("dungeon_entered")
+  expect(#entered).toBe(1)
+  expect(entered[1].payload.dungeonId).toBe("36")
+  expect(entered[1].payload.dungeonName).toBe("The Deadmines")
+  expect(entered[1].payload.difficulty).toBe("Normal")
+  expect(entered[1].source).toBe("addon")
+
+  -- the same instance reported again (zone event after the world event) is not a second visit
+  fireEvent("ZONE_CHANGED_NEW_AREA")
+  expect(#eventsOf("dungeon_entered")).toBe(1)
+
+  advanceTime(60)
+  goOut()
+  local left = eventsOf("dungeon_left")
+  expect(#left).toBe(1)
+  expect(left[1].payload.dungeonId).toBe("36")
+  expect(left[1].payload.dungeonName).toBe("The Deadmines")
+  expect(type(left[1].payload.durationSeconds)).toBe("number")
+  expect(left[1].payload.durationSeconds >= 0).toBe(true)
+  expect(#eventsOf("dungeon_entered")).toBe(1)
+end
+
+@test("a client without an instance id gets a stable name-based dungeon id")
+local function nameBasedId()
+  goInto("party", { name = "Wailing Caverns", instanceID = 0 })
+  expect(eventsOf("dungeon_entered")[1].payload.dungeonId).toBe("name:wailing-caverns")
+end
+
+@test("raids count, battlegrounds do not")
+local function kinds()
+  goInto("pvp", { name = "Warsong Gulch", instanceID = 489 })
+  expect(#eventsOf("dungeon_entered")).toBe(0)
+  goOut()
+  goInto("raid", { name = "Molten Core", instanceID = 409 })
+  expect(#eventsOf("dungeon_entered")).toBe(1)
+end
+
+@test("boss kills inside a dungeon emit boss_killed once per boss")
+local function bossKills()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  startEncounter({ id = 1144, name = "Edwin VanCleef" })
+  endEncounter(true)
+  local kills = eventsOf("boss_killed")
+  expect(#kills).toBe(1) -- BOSS_KILL and ENCOUNTER_END both fire, one event
+  expect(kills[1].payload.dungeonId).toBe("36")
+  expect(kills[1].payload.dungeonName).toBe("The Deadmines")
+  expect(kills[1].payload.bossName).toBe("Edwin VanCleef")
+  expect(kills[1].payload.encounterId).toBe("1144")
+end
+
+@test("a wipe is not a kill, and a boss outside any dungeon is ignored")
+local function noKill()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  startEncounter({ id = 1144, name = "Edwin VanCleef" })
+  endEncounter(false)
+  expect(#eventsOf("boss_killed")).toBe(0)
+  goOut()
+  startEncounter({ id = 1, name = "Azuregos" })
+  endEncounter(true)
+  expect(#eventsOf("boss_killed")).toBe(0)
+end
+
+@test("quests turned in inside a dungeon carry the dungeon")
+local function dungeonQuest()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  fireEvent("QUEST_TURNED_IN", 214, 500, 0)
+  local q = eventsOf("quest_completed")[1]
+  expect(q.payload.questId).toBe("214")
+  expect(q.payload.dungeonId).toBe("36")
+  expect(q.payload.dungeonName).toBe("The Deadmines")
+  goOut()
+  fireEvent("QUEST_TURNED_IN", 215, 500, 0)
+  expect(eventsOf("quest_completed")[2].payload.dungeonId).toBeNil()
+end
+
+@test("moving straight from one dungeon into another leaves the first")
+local function hop()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  goInto("party", { name = "Wailing Caverns", instanceID = 43 })
+  expect(#eventsOf("dungeon_entered")).toBe(2)
+  local left = eventsOf("dungeon_left")
+  expect(#left).toBe(1)
+  expect(left[1].payload.dungeonId).toBe("36")
+end
+
+@test("no completion signal, no dungeon_completed")
+local function noCompletion()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  startEncounter({ id = 1144, name = "Edwin VanCleef" })
+  endEncounter(true)
+  goOut()
+  expect(#eventsOf("dungeon_completed")).toBe(0)
+end
+
+@test("coming back to the same instance after a reload resumes it instead of announcing it again")
+local function resume()
+  local charId = next(_G.AzerothJourneyDB.characters)
+  _G.AzerothJourneyDB.activeInstances = { [charId] = { id = "36", name = "The Deadmines", enteredAt = time() - 300 } }
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  expect(#eventsOf("dungeon_entered")).toBe(0)
+  fireEvent("QUEST_TURNED_IN", 214, 500, 0)
+  expect(eventsOf("quest_completed")[1].payload.dungeonId).toBe("36")
+  goOut()
+  local left = eventsOf("dungeon_left")
+  expect(#left).toBe(1)
+  expect(left[1].payload.durationSeconds >= 300).toBe(true) -- counted from the first entry, not the reload
+end
+
+@test("a session that ended inside a dungeon closes it when the next one starts outside")
+local function endedInside()
+  if reloads() == 0 then
+    goInto("party", { name = "The Deadmines", instanceID = 36 })
+    expect(#eventsOf("dungeon_entered")).toBe(1)
+    reloadUI() -- the emulated reload comes back in the open world
+  end
+  expect(#eventsOf("dungeon_entered")).toBe(1)
+  local left = eventsOf("dungeon_left")
+  expect(#left).toBe(1)
+  expect(left[1].payload.dungeonId).toBe("36")
+  expect(left[1].payload.durationSeconds).toBeNil() -- unknown how long the gap was
+  expect(_G.AzerothJourneyDB.activeInstances[next(_G.AzerothJourneyDB.characters)]).toBeNil()
+end
+
+@test("a completion signal from the client emits dungeon_completed once")
+local function completion()
+  goInto("party", { name = "The Deadmines", instanceID = 36, difficultyName = "Normal" })
+  fireEvent("LFG_COMPLETION_REWARD")
+  fireEvent("LFG_COMPLETION_REWARD")
+  local done = eventsOf("dungeon_completed")
+  expect(#done).toBe(1)
+  expect(done[1].payload.dungeonId).toBe("36")
+  expect(done[1].payload.difficulty).toBe("Normal")
+end

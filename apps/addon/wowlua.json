@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DomenikIrrgang/wowlua/main/schema/wowlua-0.1.json",
+  "package": {
+    "name": "azeroth-journey",
+    "version": "0.1.0",
+    "authors": ["Azeroth Journey"],
+    "wowlua": "^0.13"
+  },
+  "addon": {
+    "title": "AzerothJourney",
+    "saved-variables": ["AzerothJourneyDB"]
+  },
+  "flavors": {
+    "camelot": {}
+  }
+}
