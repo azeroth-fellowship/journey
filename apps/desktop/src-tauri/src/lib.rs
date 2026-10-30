@@ -7,7 +7,6 @@ use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
 use ed25519_dalek::{Signer, SigningKey};
 use keyring::Entry;
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -87,7 +86,7 @@ fn ensure_device_key() -> Result<String, String> {
     if let Some(key) = load_signing_key()? {
         return Ok(public_key_b64(&key));
     }
-    let key = SigningKey::generate(&mut OsRng);
+    let key = SigningKey::generate(&mut rand::rng());
     entry(KEY_PRIVATE)?
         .set_password(&B64.encode(key.to_bytes()))
         .map_err(|e| e.to_string())?;
