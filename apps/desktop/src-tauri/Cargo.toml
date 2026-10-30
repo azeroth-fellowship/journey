@@ -28,7 +28,7 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"
-base64 = "0.22"
+base64 = "0.23"
 
 [features]
 default = ["custom-protocol"]
