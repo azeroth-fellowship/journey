@@ -153,7 +153,7 @@ jobs:
           args: --config src-tauri/tauri.release.generated.conf.json --bundles ${{ matrix.bundles }}
       - name: Keep installers from a dry run
         if: inputs.dry_run == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: companion-${{ runner.os }}
           path: apps/desktop/src-tauri/target/release/bundle/
