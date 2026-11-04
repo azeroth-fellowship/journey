@@ -1,6 +1,6 @@
 [package]
 name = "azeroth-desktop"
-version = "0.0.0"
+version = "0.1.0"
 description = "Azeroth Journey desktop companion"
 authors = ["Azeroth Journey"]
 license = "GPL-3.0-only"

@@ -4,7 +4,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5QzNCMzkxOUY0Njg2NUQKUldSZGhrYWZrYlBEcWIwdnZaR29QMFNWZklBQ0tMWUxOS0d0VkkvMjQ3L1Z5S2xwNjdOR09BZTgK",
       "endpoints": ["https://github.com/{{RELEASE_REPO}}/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
