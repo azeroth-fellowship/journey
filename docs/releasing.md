@@ -48,7 +48,7 @@ Dev builds and plain `cargo check` have no updater config: the plugin is not reg
 
 Notes on wowlua behaviour (observed with 0.13.6, from the output of `wowlua build --release`):
 - Without a `v<version>` tag at HEAD (or with a dirty tree) wowlua stamps `## Version: 0.1.0-alpha+<sha>`. It does not recognise `addon-v...` tags, so the workflow creates a throwaway local `v<version>` tag before building. It is never pushed. Do not push a `v*` tag for this.
-- The workflow assumes the CLI is available as the npm package `wowlua` (documented install `npm i -g wowlua`; fallback `cargo install wowlua`). Not verified on a Linux runner.
+- wowlua is not on npm or crates.io. The workflow downloads the pinned prebuilt Linux binary (`WOWLUA_VERSION` in `release-addon.yml`) from the DomenikIrrgang/wowlua GitHub releases and verifies its checksum. Bump that version deliberately.
 - wowlua has its own `package` / `publish` commands with `publish.targets` in `wowlua.json`. The workflow uses plain upload APIs instead, as requested; switching later is possible.
 
 ### CurseForge and Wago
