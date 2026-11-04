@@ -56,12 +56,23 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if [[ "$version" == *-* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
 
-      # UNVERIFIED in CI: the npm package name `wowlua` and its Linux binary. Locally `wowlua 0.13.6` works on Windows.
-      # `cargo install wowlua` is the documented alternative (slow: compiles from source).
+      # wowlua is not on npm or crates.io: use the prebuilt release binary from GitHub, pinned and checksum-verified.
       - name: Install wowlua
+        env:
+          WOWLUA_VERSION: 0.13.6
+          GH_TOKEN: ${{ github.token }}
         run: |
-          npm i -g 'wowlua@~0.13' || { echo "::warning::npm install failed, falling back to cargo install wowlua"; cargo install wowlua --locked; }
-          wowlua --version
+          asset="wowlua-v${WOWLUA_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          mkdir -p "$RUNNER_TEMP/wowlua-dl" "$HOME/.local/bin"
+          cd "$RUNNER_TEMP/wowlua-dl"
+          gh release download "v${WOWLUA_VERSION}" -R DomenikIrrgang/wowlua -p "$asset" -p "$asset.sha256"
+          sha256sum -c "$asset.sha256"
+          tar -xzf "$asset"
+          bin="$(find . -type f -name wowlua | head -1)"
+          [ -n "$bin" ] || { echo "::error::wowlua binary not found in $asset"; ls -R; exit 1; }
+          install -m 755 "$bin" "$HOME/.local/bin/wowlua"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/wowlua" --version
 
       - name: Check and test
         working-directory: ${{ env.ADDON_DIR }}
