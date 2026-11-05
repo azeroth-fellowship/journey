@@ -360,7 +360,10 @@ local function onZoneChanged()
   syncInstance()
   local newZone = zoneName()
   if newZone and newZone ~= state.currentZone then
-    pushEvent("zone_changed", { fromZone = state.currentZone, toZone = newZone })
+    -- With no previous zone this is the client announcing where the character logged in, not a journey.
+    if state.currentZone then
+      pushEvent("zone_changed", { fromZone = state.currentZone, toZone = newZone })
+    end
     state.currentZone = newZone
   end
 end
@@ -370,6 +373,31 @@ local questTitles: any = {}
 
 local function rememberQuestTitle(id: any, title: any)
   if id and type(title) == "string" and title ~= "" then questTitles[tostring(id)] = title end
+end
+
+-- Remember the title of every quest in the log, so a quest that leaves the log when it is turned in still has a name.
+-- Modern clients list the log through C_QuestLog, older ones through GetQuestLogTitle (quest id is its 8th result).
+local function scanQuestLog()
+  local cq = _G.C_QuestLog
+  if type(cq) == "table" and type(cq.GetNumQuestLogEntries) == "function" and type(cq.GetInfo) == "function" then
+    pcall(function()
+      local n = cq.GetNumQuestLogEntries()
+      for i = 1, n do
+        local info = cq.GetInfo(i)
+        if type(info) == "table" and not info.isHeader then rememberQuestTitle(info.questID, info.title) end
+      end
+    end)
+    return
+  end
+  local count, title = _G.GetNumQuestLogEntries, _G.GetQuestLogTitle
+  if type(count) ~= "function" or type(title) ~= "function" then return end
+  pcall(function()
+    local n = count()
+    for i = 1, n do
+      local t, _, _, isHeader, _, _, _, id = title(i)
+      if not isHeader then rememberQuestTitle(id, t) end
+    end
+  end)
 end
 
 local function questTitle(questId: any): string
@@ -434,7 +462,10 @@ end
 local encounterEventsLikely = type(_G.IsEncounterInProgress) == "function" or type(_G.C_InstanceEncounter) == "table"
 
 optional:SetScript("OnEvent", function(self, ev, a1, a2, a3, a4, a5)
-  if ev == "QUEST_DETAIL" or ev == "QUEST_COMPLETE" then
+  if ev == "QUEST_ACCEPTED" or ev == "QUEST_LOG_UPDATE" then
+    scanQuestLog()
+  elseif ev == "QUEST_DETAIL" or ev == "QUEST_COMPLETE" then
+    scanQuestLog()
     local getId, getTitle = _G.GetQuestID, _G.GetTitleText
     if type(getId) == "function" and type(getTitle) == "function" then rememberQuestTitle(getId(), getTitle()) end
   elseif ev == "BOSS_KILL" then
@@ -450,6 +481,8 @@ optional:SetScript("OnEvent", function(self, ev, a1, a2, a3, a4, a5)
     dungeonCompleted()
   end
 end)
+tryRegister("QUEST_ACCEPTED")
+tryRegister("QUEST_LOG_UPDATE")
 tryRegister("QUEST_DETAIL")
 tryRegister("QUEST_COMPLETE")
 tryRegister("BOSS_KILL")
