@@ -8,8 +8,8 @@ import { JourneyEvent } from './events';
 // Friends (all routes are authenticated; the acting user always comes from the session)
 // ---------------------------------------------------------------------------
 
-/** POST /v1/friend-requests. Looked up case-insensitively; the shape is deliberately loose so a bad name is not distinguishable from an unknown one. */
-export const SendFriendRequest = z.object({ travellerName: z.string().trim().min(1).max(64) });
+/** POST /v1/friend-requests. Looked up by user id; the shape is deliberately loose so a bad id is not distinguishable from an unknown one. */
+export const SendFriendRequest = z.object({ userId: z.string().trim().min(1).max(64) });
 
 /** The one answer to POST /v1/friend-requests (202): identical whether or not the traveller exists or is already a friend. */
 export const FriendRequestSentResponse = z.object({ status: z.literal('sent') });
