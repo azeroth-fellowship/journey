@@ -237,9 +237,9 @@ export class ApiClient {
 
   // ---- friends ----
 
-  /** Always resolves the same way (202) whether or not the traveller exists. */
-  async sendFriendRequest(travellerName: string): Promise<void> {
-    await this.request(FriendRequestSentResponse, '/v1/friend-requests', { method: 'POST', body: { travellerName } });
+  /** Always resolves the same way (202) whether or not the user exists. */
+  async sendFriendRequest(userId: string): Promise<void> {
+    await this.request(FriendRequestSentResponse, '/v1/friend-requests', { method: 'POST', body: { userId } });
   }
 
   listFriends(): Promise<ListFriendsResponse> {
@@ -285,6 +285,13 @@ export class ApiClient {
 
   async unfriend(userId: string): Promise<void> {
     await this.request(undefined, `/v1/friends/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+  }
+
+  /** Public journeys, grouped by traveller (opt-in). */
+  async getLeaderboard(): Promise<{ userId: string; travellerName: string; characters: { id: string; name: string; class: string; level: number }[] }[]> {
+    const res = await fetch(`${this.options.baseUrl}/v1/leaderboard`, { headers: { ...this.options.headers, ...this.headers() }, ...(this.options.credentials ? { credentials: this.options.credentials } : {}) });
+    if (!res.ok) throw new ApiError(res.status, 'request failed');
+    return (await res.json()) as { userId: string; travellerName: string; characters: { id: string; name: string; class: string; level: number }[] }[];
   }
 
   /** No auth. 404 (ApiError.status) for unknown and revoked slugs alike. */
