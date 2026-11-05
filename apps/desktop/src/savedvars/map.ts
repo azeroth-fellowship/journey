@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-import { JourneyEvent, type Character, type CharacterClass, type CharacterRace, type Session } from '@azeroth/contracts';
+import { JourneyEvent, type Character, type CharacterClass, type CharacterRace, type Profession, type Session } from '@azeroth/contracts';
 import { luaArray, parseLuaFile, type LuaTable, type LuaValue } from './lua';
 
 /** Name of the global the addon saves (apps/addon/src/main.wowlua). */
@@ -117,6 +117,19 @@ function buildSessions(events: JourneyEvent[]): Session[] {
   });
 }
 
+function readProfessions(raw: LuaValue | undefined): Profession[] {
+  const out: Profession[] = [];
+  for (const p of luaArray(raw)) {
+    if (!isTable(p)) continue;
+    const name = str(p.name);
+    if (!name || typeof p.rank !== 'number') continue;
+    const rank = Math.max(0, Math.trunc(p.rank));
+    const max = typeof p.max === 'number' ? Math.max(rank, Math.trunc(p.max)) : rank;
+    out.push({ name, rank, max, ...(typeof p.skillLine === 'number' ? { skillLine: Math.trunc(p.skillLine) } : {}) });
+  }
+  return out.slice(0, 16);
+}
+
 function buildCharacter(userId: string, key: string, events: JourneyEvent[], meta: LuaTable | undefined): Character {
   const dash = key.indexOf('-'); // names never contain '-', realm names can
   const name = str(meta?.name) ?? (dash > 0 ? key.slice(0, dash) : key);
@@ -139,6 +152,10 @@ function buildCharacter(userId: string, key: string, events: JourneyEvent[], met
     lastSeenAt: last,
   };
   if (realm) c.realm = realm;
+  const gender = str(meta?.gender);
+  if (gender === 'male' || gender === 'female') c.gender = gender;
+  const professions = readProfessions(meta?.professions);
+  if (professions.length > 0) c.professions = professions;
   if (zone) c.zone = zone;
   return c;
 }

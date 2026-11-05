@@ -222,4 +222,28 @@ describe('mapSavedVariables', () => {
       expect(r.characters).toEqual([]);
     }
   });
+
+  it('maps gender and professions from the character record, dropping malformed ones', () => {
+    const file = `AzerothJourneyDB = {
+	["events"] = {
+		{ ["id"] = "e1", ["characterId"] = "Thrall-Area 52", ["sessionId"] = "s1", ["occurredAt"] = "2026-10-01T10:00:00Z", ["type"] = "session_started", ["payload"] = { ["level"] = 5 } },
+	},
+	["characters"] = {
+		["Thrall-Area 52"] = {
+			["name"] = "Thrall", ["realm"] = "Area 52", ["class"] = "SHAMAN", ["race"] = "Orc", ["level"] = 5, ["gender"] = "male",
+			["professions"] = {
+				{ ["name"] = "Mining", ["rank"] = 75, ["max"] = 150, ["skillLine"] = 186 },
+				{ ["name"] = "Herbalism", ["rank"] = 12, ["max"] = 75 },
+				{ ["name"] = "Broken" },
+			},
+		},
+	},
+}`;
+    const [c] = mapSavedVariables([file], U).characters;
+    expect(c?.gender).toBe('male');
+    expect(c?.professions).toEqual([
+      { name: 'Mining', rank: 75, max: 150, skillLine: 186 },
+      { name: 'Herbalism', rank: 12, max: 75 },
+    ]);
+  });
 });
