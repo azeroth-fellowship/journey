@@ -23,6 +23,38 @@ local function nowIso(): string
   return date("!%Y-%m-%dT%H:%M:%SZ", time())
 end
 
+-- GetZoneText is empty until the client has loaded the area (it is at PLAYER_LOGIN), so fall back and let callers omit it.
+local function zoneName(): string?
+  local z = GetZoneText()
+  if type(z) == "string" and z ~= "" then return z end
+  local real = _G.GetRealZoneText
+  if type(real) == "function" then
+    local r = real()
+    if type(r) == "string" and r ~= "" then return r end
+  end
+  return nil
+end
+
+-- Player position on the current map as 0..1 fractions, or nil. Modern clients have C_Map; old ones GetPlayerMapPosition.
+local function playerPosition(): (number?, number?)
+  local x, y = nil, nil
+  local cmap = _G.C_Map
+  if type(cmap) == "table" and type(cmap.GetBestMapForUnit) == "function" and type(cmap.GetPlayerMapPosition) == "function" then
+    pcall(function()
+      local mapId = cmap.GetBestMapForUnit("player")
+      if not mapId then return end
+      local pos = cmap.GetPlayerMapPosition(mapId, "player")
+      if pos then x, y = pos:GetXY() end
+    end)
+  end
+  if x == nil and type(_G.GetPlayerMapPosition) == "function" then
+    pcall(function() x, y = _G.GetPlayerMapPosition("player") end)
+  end
+  if type(x) ~= "number" or type(y) ~= "number" then return nil, nil end
+  if (x == 0 and y == 0) or x < 0 or x > 1 or y < 0 or y > 1 then return nil, nil end
+  return x, y
+end
+
 local function newEventId(): string
   local count = (_G.AzerothJourneyDB.events and #_G.AzerothJourneyDB.events or 0) + 1
   return format("evt-%s-%d", state.sessionId or "none", count)
@@ -167,14 +199,110 @@ end
 local function startSession()
   state.sessionId = format("sess-%s-%s", state.characterId or "x", nowIso())
   state.sessionStartedAt = nowIso()
-  state.currentZone = GetZoneText()
+  state.currentZone = zoneName()
   state.currentLevel = UnitLevel("player")
   pushEvent("session_started", { zone = state.currentZone, level = state.currentLevel })
 end
 
+-- /reload fires PLAYER_LOGOUT too, and the client does not say which one it is. The end event is written at logout, and a
+-- login of the same character within RELOAD_WINDOW seconds takes it back and carries on with the same session instead.
+local RELOAD_WINDOW = 30
+
 local function endSession(reason: string?)
-  pushEvent("session_ended", { reason = reason or "logout", zone = GetZoneText(), level = UnitLevel("player") })
+  if not state.sessionId then return end
+  pushEvent("session_ended", { reason = reason or "logout", zone = zoneName() or state.currentZone, level = state.currentLevel or UnitLevel("player") })
+  local events = _G.AzerothJourneyDB.events
+  local last = events[#events]
+  _G.AzerothJourneyDB.lastEnd = last and { characterId = state.characterId, sessionId = state.sessionId, eventId = last.id, at = time(), startedAt = state.sessionStartedAt, zone = state.currentZone, level = state.currentLevel } or nil
   state.sessionId = nil
+end
+
+-- Takes the pending end back after a reload; false when this is a fresh login.
+local function resumeSession(): boolean
+  local pending = _G.AzerothJourneyDB.lastEnd
+  _G.AzerothJourneyDB.lastEnd = nil
+  if not pending or pending.characterId ~= state.characterId then return false end
+  if type(pending.at) ~= "number" or time() - pending.at > RELOAD_WINDOW then return false end
+  local events = _G.AzerothJourneyDB.events
+  local last = events[#events]
+  if not last or last.id ~= pending.eventId or last.type ~= "session_ended" then return false end
+  table.remove(events)
+  state.sessionId = pending.sessionId
+  state.sessionStartedAt = pending.startedAt
+  state.currentZone = pending.zone
+  state.currentLevel = UnitLevel("player") or pending.level
+  return true
+end
+
+-- Professions: { name, rank, max, icon?, skillLine? } per primary/secondary profession, saved on the character record.
+-- Clients with GetProfessions give icon and skill line id; older ones only list skills by (localized) name, so those are
+-- matched against the English profession names and anything else is skipped.
+local PROFESSION_NAMES: any = {
+  Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true, Inscription = true,
+  Jewelcrafting = true, Leatherworking = true, Mining = true, Skinning = true, Tailoring = true,
+  Cooking = true, ["First Aid"] = true, Fishing = true, Archaeology = true, Lockpicking = true,
+}
+
+local function readProfessions(): any
+  local out: any = {}
+  local gp, gi = _G.GetProfessions, _G.GetProfessionInfo
+  if type(gp) == "function" and type(gi) == "function" then
+    local ok = pcall(function()
+      local a, b, c, d, e, f = gp()
+      local idx = { a, b, c, d, e, f }
+      for i = 1, 6 do
+        if idx[i] then
+          local name, icon, rank, maxRank, _, _, skillLine = gi(idx[i])
+          if type(name) == "string" and type(rank) == "number" then
+            table.insert(out, { name = name, rank = rank, max = maxRank, icon = icon, skillLine = skillLine })
+          end
+        end
+      end
+    end)
+    if ok then return out end
+    out = {}
+  end
+  local num, info = _G.GetNumSkillLines, _G.GetSkillLineInfo
+  if type(num) ~= "function" or type(info) ~= "function" then return out end
+  pcall(function()
+    -- Skills under a collapsed header are not listed: open them all, read, then collapse the ones that were closed.
+    local closed: any = {}
+    local expand, collapse = _G.ExpandSkillHeader, _G.CollapseSkillHeader
+    if type(expand) == "function" and type(collapse) == "function" then
+      for i = 1, num() do
+        local _, header, isExpanded = info(i)
+        if header and not isExpanded then table.insert(closed, i) end
+      end
+      expand(0)
+    end
+    for i = 1, num() do
+      local name, header, _, rank, _, _, maxRank = info(i)
+      if not header and PROFESSION_NAMES[name] and type(rank) == "number" then
+        table.insert(out, { name = name, rank = rank, max = maxRank })
+      end
+    end
+    if type(collapse) == "function" then
+      for i = #closed, 1, -1 do collapse(closed[i]) end
+    end
+  end)
+  return out
+end
+
+-- UnitSex: 2 = male, 3 = female (1 = unknown).
+local function genderToken(): string?
+  local sex = call("UnitSex", "player")
+  if sex == 2 then return "male" end
+  if sex == 3 then return "female" end
+  return nil
+end
+
+local function saveProfile()
+  local meta = _G.AzerothJourneyDB.characters and _G.AzerothJourneyDB.characters[state.characterId]
+  if not meta then return end
+  local list = readProfessions()
+  -- Some clients answer with nothing right at login; keep what we had rather than blanking it.
+  if #list > 0 or meta.professions == nil then meta.professions = list end
+  meta.gender = genderToken() or meta.gender
 end
 
 @event("PLAYER_LOGIN")
@@ -190,7 +318,8 @@ local function onLogin()
   _G.AzerothJourneyDB.characters[state.characterId] = {
     name = name, realm = realm, class = classFile, race = raceFile, level = UnitLevel("player"),
   }
-  startSession()
+  if not resumeSession() then startSession() end
+  saveProfile()
   chat(format("%s loaded", addon.title))
 end
 
@@ -203,27 +332,59 @@ end
 local function onLevelUp(newLevel: number)
   local from = state.currentLevel or (newLevel - 1)
   state.currentLevel = newLevel
-  pushEvent("level_up", { fromLevel = from, toLevel = newLevel, zone = GetZoneText() })
+  pushEvent("level_up", { fromLevel = from, toLevel = newLevel, zone = zoneName() })
 end
 
 @event("PLAYER_ENTERING_WORLD")
 local function onEnteringWorld()
+  -- the zone was not known yet when the session started at PLAYER_LOGIN
+  local zone = zoneName()
+  if zone and not state.currentZone and state.sessionId then
+    state.currentZone = zone
+    local events = _G.AzerothJourneyDB.events
+    for i = #events, 1, -1 do
+      local e = events[i]
+      if e.sessionId ~= state.sessionId then break end
+      if e.type == "session_started" then
+        e.payload.zone = zone
+        break
+      end
+    end
+  end
   syncInstance()
+  saveProfile()
 end
 
 @event("ZONE_CHANGED_NEW_AREA")
 local function onZoneChanged()
   syncInstance()
-  local newZone = GetZoneText()
+  local newZone = zoneName()
   if newZone and newZone ~= state.currentZone then
     pushEvent("zone_changed", { fromZone = state.currentZone, toZone = newZone })
     state.currentZone = newZone
   end
 end
 
+-- Quest titles: the quest log no longer has a quest once it is turned in, so remember the title from the quest dialog.
+local questTitles: any = {}
+
+local function rememberQuestTitle(id: any, title: any)
+  if id and type(title) == "string" and title ~= "" then questTitles[tostring(id)] = title end
+end
+
+local function questTitle(questId: any): string
+  local key = tostring(questId)
+  local cq = _G.C_QuestLog
+  if type(cq) == "table" and type(cq.GetTitleForQuestID) == "function" then
+    local ok, t = pcall(cq.GetTitleForQuestID, questId)
+    if ok and type(t) == "string" and t ~= "" then return t end
+  end
+  return questTitles[key] or ("Quest " .. key)
+end
+
 @event("QUEST_TURNED_IN")
 local function onQuestTurnedIn(questId: any, xpReward: any)
-  local payload: any = { questId = tostring(questId), questName = "Quest " .. tostring(questId), zone = GetZoneText(), xpGained = xpReward }
+  local payload: any = { questId = tostring(questId), questName = questTitle(questId), zone = zoneName(), xpGained = xpReward }
   local inst = state.instance
   if inst then
     payload.dungeonId = inst.id
@@ -273,20 +434,28 @@ end
 local encounterEventsLikely = type(_G.IsEncounterInProgress) == "function" or type(_G.C_InstanceEncounter) == "table"
 
 optional:SetScript("OnEvent", function(self, ev, a1, a2, a3, a4, a5)
-  if ev == "BOSS_KILL" then
+  if ev == "QUEST_DETAIL" or ev == "QUEST_COMPLETE" then
+    local getId, getTitle = _G.GetQuestID, _G.GetTitleText
+    if type(getId) == "function" and type(getTitle) == "function" then rememberQuestTitle(getId(), getTitle()) end
+  elseif ev == "BOSS_KILL" then
     bossKilled(a2, a1)
   elseif ev == "ENCOUNTER_END" then
     if a5 == 1 or a5 == true then bossKilled(a2, a1) end
   elseif ev == "COMBAT_LOG_EVENT_UNFILTERED" then
     onCombatLog()
+  elseif ev == "SKILL_LINES_CHANGED" then
+    saveProfile()
   elseif ev == "LFG_COMPLETION_REWARD" then
     -- GUESS: the dungeon finder's "dungeon complete" signal; a client without a finder never fires it.
     dungeonCompleted()
   end
 end)
+tryRegister("QUEST_DETAIL")
+tryRegister("QUEST_COMPLETE")
 tryRegister("BOSS_KILL")
 tryRegister("ENCOUNTER_END")
 tryRegister("LFG_COMPLETION_REWARD")
+tryRegister("SKILL_LINES_CHANGED")
 if not encounterEventsLikely then tryRegister("COMBAT_LOG_EVENT_UNFILTERED") end
 
 -- Location sampling timer
@@ -298,11 +467,10 @@ sampler:SetScript("OnUpdate", function(self, dt)
   elapsed = elapsed + dt
   if elapsed >= SAMPLE_INTERVAL then
     elapsed = 0
-    local gmpp = _G.GetPlayerMapPosition
-    local x, y = nil, nil
-    if gmpp then
-      x, y = gmpp("player")
+    local zone = zoneName()
+    if zone then
+      local x, y = playerPosition()
+      pushEvent("location", { zone = zone, x = x, y = y })
     end
-    pushEvent("location", { zone = GetZoneText(), x = x, y = y })
   end
 end)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { z } from 'zod';
 import { Id, IsoTimestamp } from './common';
-import { CharacterClass, CharacterRace, ProfileVisibility } from './characters';
+import { CharacterClass, CharacterGender, CharacterRace, Profession, ProfileVisibility } from './characters';
 import {
   BossKilledPayload,
   DungeonCompletedPayload,
@@ -104,6 +104,8 @@ export const PublicJourney = z.object({
     class: CharacterClass,
     race: CharacterRace,
     level: z.number().int().min(1).max(80),
+    gender: CharacterGender.optional(),
+    professions: z.array(Profession).max(16).optional(),
   }),
   totals: z.object({
     sessions: z.number().int().nonnegative(),

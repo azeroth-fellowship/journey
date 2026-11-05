@@ -53,7 +53,7 @@ export const localSyncStore: SyncStore = {
   },
 };
 
-const characterSignature = (c: Character) => [c.name, c.realm, c.race, c.class, c.level, c.zone].join('|');
+const characterSignature = (c: Character) => [c.name, c.realm, c.race, c.class, c.level, c.zone, c.gender, JSON.stringify(c.professions ?? [])].join('|');
 const sessionSignature = (s: Session) => [s.endedAt, s.playtimeSeconds, s.endZone, s.endLevel].join('|');
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

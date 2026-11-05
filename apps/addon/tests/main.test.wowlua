@@ -181,3 +181,20 @@ local function completion()
   expect(done[1].payload.dungeonId).toBe("36")
   expect(done[1].payload.difficulty).toBe("Normal")
 end
+
+@test("a reload resumes the session instead of ending it")
+local function reloadKeepsSession()
+  if reloads() == 0 then
+    _G.AzerothJourneyDB.events = {}
+    _G.AzerothJourneyDB.lastEnd = nil
+    reloadUI()
+  end
+  expect(#eventsOf("session_ended")).toBe(0)
+end
+
+@test("the character record carries a gender and a professions list")
+local function profile()
+  fireEvent("PLAYER_ENTERING_WORLD", false, false)
+  local meta = _G.AzerothJourneyDB.characters[next(_G.AzerothJourneyDB.characters)]
+  expect(type(meta.professions)).toBe("table")
+end
