@@ -26,6 +26,7 @@ export interface SyncApi {
   me(): Promise<MeResponse>;
   registerCharacter(c: Character): Promise<void>;
   upsertSession(s: Session): Promise<void>;
+  upsertPresence(u: { characterId: string; userId: string; isOnline: boolean; zone?: string; level?: number; expiresAt: string; updatedAt: string }): Promise<void>;
 }
 
 export interface SyncResult {
@@ -68,6 +69,7 @@ export async function syncSavedVariables(deps: {
   queue: UploadQueue;
   deviceId: string;
   store?: SyncStore;
+  shareLive?: boolean;
 }): Promise<SyncResult> {
   const store = deps.store ?? localSyncStore;
   const result: SyncResult = { characters: 0, queued: 0, skipped: 0, errors: [] };
@@ -102,6 +104,18 @@ export async function syncSavedVariables(deps: {
       if (state.characters[character.id] !== characterSignature(character)) {
         await deps.api.registerCharacter(character);
         state.characters[character.id] = characterSignature(character);
+      }
+      if (deps.shareLive) {
+        const now = new Date();
+        await deps.api.upsertPresence({
+          characterId: character.id,
+          userId: state.userId!,
+          isOnline: true,
+          ...(character.zone ? { zone: character.zone } : {}),
+          ...(character.level ? { level: character.level } : {}),
+          expiresAt: new Date(now.getTime() + 120_000).toISOString(),
+          updatedAt: now.toISOString(),
+        });
       }
     } catch (e) {
       result.errors.push(`Could not register ${character.name}: ${message(e)}`);

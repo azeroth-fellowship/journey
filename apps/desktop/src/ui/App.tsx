@@ -311,7 +311,7 @@ function StatusContainer({ deviceToken, deviceId, paused, updater, flushRef, ...
     try {
       const dir = wowDirRef.current;
       const api = new ApiClient({ baseUrl: API_BASE_URL, getToken: () => tokenRef.current });
-      const r = await syncSavedVariables({ readFiles: () => native.readSavedVariables(dir), api, queue, deviceId });
+      const r = await syncSavedVariables({ readFiles: () => native.readSavedVariables(dir), api, queue, deviceId, shareLive: rest.shareLive });
       setSyncError(r.errors[0] ?? null);
       if (r.queued > 0) void queue.flush();
     } catch (e) {

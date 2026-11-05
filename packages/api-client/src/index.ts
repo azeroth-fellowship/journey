@@ -35,6 +35,7 @@ import {
   type UpdateSharingRequest,
   type UploadBatchRequest,
   type UploadBatchResponse,
+  type PresenceUpdate,
 } from '@azeroth/contracts';
 
 export interface JourneyPageOptions {
@@ -202,6 +203,10 @@ export class ApiClient {
   /** Upsert; the server keeps the owner's sharing choice. */
   async registerCharacter(character: Character): Promise<void> {
     await this.request(undefined, '/v1/characters', { method: 'POST', body: character });
+  }
+
+  async upsertPresence(update: PresenceUpdate): Promise<void> {
+    await this.request(undefined, '/v1/presence', { method: 'POST', body: update });
   }
 
   async upsertSession(session: Session): Promise<void> {
