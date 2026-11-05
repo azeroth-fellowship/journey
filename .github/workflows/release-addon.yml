@@ -159,7 +159,7 @@ jobs:
           metadata="$(jq -n --arg log "$(cat "$RUNNER_TEMP/changelog.md")" --arg name "AzerothJourney $VERSION" --arg rt "$release_type" --argjson ids "[$CF_GAME_VERSION_IDS]" \
             '{changelog: $log, changelogType: "markdown", displayName: $name, gameVersions: $ids, releaseType: $rt}')"
           curl --fail-with-body -sS -X POST "https://wow.curseforge.com/api/projects/$CF_PROJECT_ID/upload-file" \
-            -H "X-Api-Token: $CF_API_KEY" -F "metadata=$metadata" -F "file=@$ZIP"
+            -H "X-Api-Token: $CF_API_KEY" --form-string "metadata=$metadata" -F "file=@$ZIP"
           echo
 
       - name: Publish to Wago.io
@@ -180,5 +180,5 @@ jobs:
           metadata="$(jq -n --arg log "$(cat "$RUNNER_TEMP/changelog.md")" --arg label "$VERSION" --arg st "$stability" --argjson extra "${WAGO_EXTRA_METADATA:-{\}}" \
             '{label: $label, stability: $st, changelog: $log} + $extra')"
           curl --fail-with-body -sS -X POST "https://addons.wago.io/api/projects/$WAGO_PROJECT_ID/version" \
-            -H "authorization: Bearer $WAGO_API_TOKEN" -H "accept: application/json" -F "metadata=$metadata" -F "file=@$ZIP"
+            -H "authorization: Bearer $WAGO_API_TOKEN" -H "accept: application/json" --form-string "metadata=$metadata" -F "file=@$ZIP"
           echo
