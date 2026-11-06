@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, it, expect } from 'vitest';
-import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
+import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, factionOfRace, CATALOG_QUEST_IDS, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
 
 describe('JourneyEvent schema', () => {
   it('parses a level_up event', () => {
@@ -103,6 +103,29 @@ describe('dungeon events and progress', () => {
     expect(p.map((d) => d.dungeonId)).toEqual(['i-1', 'i-2']);
     expect(p[0]).toMatchObject({ dungeonName: 'Deadmines', runs: 2, bossesKilled: ["Rhahk'Zor"], questsCompleted: [{ questId: '55', title: 'Red Silk Bandanas' }], completed: false, lastVisitedAt: '2026-10-29T12:00:00.000Z' });
     expect(DungeonProgressResponse.parse({ characterId: 'c', dungeons: p }).dungeons).toHaveLength(2);
+  });
+
+  it('credits quests handed in outside the instance by catalog quest id, for visited dungeons only', () => {
+    const rfc = dungeonIdFor(FOREVER_INSTANCES.find((i) => i.id === 'ragefire-chasm')!);
+    const evs = [
+      ev('a', '10:00:00', 'quest_completed', { questId: '5722', questName: 'Searching for the Lost Satchel' }),
+      ev('b', '10:01:00', 'dungeon_entered', { dungeonId: rfc, dungeonName: 'Ragefire Chasm' }),
+      ev('c', '10:02:00', 'quest_completed', { questId: '5723', questName: "Testing an Enemy's Strength", dungeonId: rfc }),
+      ev('d', '10:03:00', 'quest_completed', { questId: '166', questName: 'The Defias Brotherhood' }),
+    ];
+    const p = buildDungeonProgress(evs);
+    expect(p.map((d) => d.dungeonId)).toEqual([rfc]);
+    expect(p[0]!.questsCompleted.map((q) => q.questId).sort()).toEqual(['5722', '5723']);
+    expect(CATALOG_QUEST_IDS).toContain('5761');
+  });
+
+  it('dungeonQuestStatus can leave out the other faction', () => {
+    const all = dungeonQuestStatus('name:ruins-of-lordaeron', [], DUNGEON_CATALOG);
+    const horde = dungeonQuestStatus('name:ruins-of-lordaeron', [], DUNGEON_CATALOG, 'horde');
+    expect(horde.length).toBeLessThan(all.length);
+    expect(horde.every((q) => q.faction !== 'alliance')).toBe(true);
+    expect(factionOfRace('orc')).toBe('horde');
+    expect(factionOfRace('gnome')).toBe('alliance');
   });
 
   it('isDungeonCompleted: event or catalog final boss', () => {

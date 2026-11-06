@@ -69,6 +69,18 @@ export const DUNGEON_CATALOG: DungeonCatalog = Object.fromEntries(
   ]),
 );
 
+/** Every quest id the catalog lists, so a store can fetch quest turn-ins that carry no dungeon tag. */
+export const CATALOG_QUEST_IDS: readonly string[] = [
+  ...new Set(Object.values(DUNGEON_CATALOG).flatMap((d) => (d.quests ?? []).map((q) => q.questId))),
+];
+
+/** Horde races; every other race is Alliance. */
+const HORDE_RACES: ReadonlySet<string> = new Set(['orc', 'undead', 'tauren', 'troll', 'blood_elf']);
+
+export function factionOfRace(race: string): 'alliance' | 'horde' {
+  return HORDE_RACES.has(race) ? 'horde' : 'alliance';
+}
+
 // ---------------------------------------------------------------------------
 // Progress
 // ---------------------------------------------------------------------------
@@ -143,7 +155,7 @@ export function isRaidEvent(e: JourneyEvent): boolean {
   return e.type === 'boss_killed' && e.payload.instanceKind === 'raid';
 }
 
-/** Event types buildDungeonProgress reads (quest_completed only when it carries a dungeonId). */
+/** Event types buildDungeonProgress reads. Untagged quest_completed events count by quest id. */
 export const DUNGEON_EVENT_TYPES = [
   'dungeon_entered', 'dungeon_left', 'dungeon_completed',
   'raid_entered', 'raid_left', 'raid_completed',
@@ -157,7 +169,14 @@ export const DUNGEON_EVENT_TYPES = [
 export function buildDungeonProgress(events: readonly JourneyEvent[], catalog: DungeonCatalog = DUNGEON_CATALOG): DungeonProgress[] {
   const byId = new Map<string, DungeonProgress>();
   const ordered = [...events].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+  // Quests are usually handed in at a quest giver outside the instance, so they carry no dungeonId. They are
+  // attributed by quest id to the catalog dungeons the character has visited.
+  const untaggedQuests: { questId: string; title: string }[] = [];
   for (const e of ordered) {
+    if (e.type === 'quest_completed' && !e.payload.dungeonId) {
+      untaggedQuests.push({ questId: e.payload.questId, title: e.payload.questName });
+      continue;
+    }
     if (
       e.type !== 'dungeon_entered' && e.type !== 'dungeon_left' && e.type !== 'dungeon_completed' &&
       e.type !== 'raid_entered' && e.type !== 'raid_left' && e.type !== 'raid_completed' &&
@@ -184,6 +203,14 @@ export function buildDungeonProgress(events: readonly JourneyEvent[], catalog: D
       if (!d.questsCompleted.some((q) => q.questId === e.payload.questId)) d.questsCompleted.push({ questId: e.payload.questId, title: e.payload.questName });
     }
   }
+  if (untaggedQuests.length > 0) {
+    for (const [dungeonId, d] of byId) {
+      const listed = new Set((catalog[dungeonId]?.quests ?? []).map((q) => q.questId));
+      for (const q of untaggedQuests) {
+        if (listed.has(q.questId) && !d.questsCompleted.some((x) => x.questId === q.questId)) d.questsCompleted.push(q);
+      }
+    }
+  }
   return [...byId.values()]
     // one canonical timestamp format, whatever the store hands back
     .map((d) => ({ ...d, lastVisitedAt: new Date(d.lastVisitedAt).toISOString(), completed: isDungeonCompleted(d, catalog) }))
@@ -203,9 +230,13 @@ export function dungeonQuestStatus(
   dungeonId: string,
   completedQuestIds: Iterable<string>,
   catalog: DungeonCatalog = DUNGEON_CATALOG,
+  /** When given, quests for the other faction are left out. */
+  faction?: 'alliance' | 'horde',
 ): DungeonQuestStatus[] {
   const done = new Set(completedQuestIds);
-  return (catalog[dungeonId]?.quests ?? []).map((q) => ({ ...q, done: done.has(q.questId) }));
+  return (catalog[dungeonId]?.quests ?? [])
+    .filter((q) => !faction || q.faction === 'both' || q.faction === faction)
+    .map((q) => ({ ...q, done: done.has(q.questId) }));
 }
 
 /** Ids of every quest a character has turned in, from its events (any dungeon or none). */

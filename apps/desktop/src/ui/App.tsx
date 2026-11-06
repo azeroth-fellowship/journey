@@ -12,7 +12,7 @@ import * as native from '../identity/native';
 import { UploadQueue, uploadedTotal } from '../queue';
 import { statusView } from '../status';
 import { syncSavedVariables } from '../sync';
-import { connectLiveSync } from '../liveSync';
+import { connectLiveSync, type LivePresence } from '../liveSync';
 import { describeUpdate, UpdateController } from '../update';
 import { nativeUpdateDeps } from '../updateNative';
 import { ApproveSignIn } from './ApproveSignIn';
@@ -25,7 +25,6 @@ const api = createIdentityApi(API_BASE_URL);
 const WOW_DIR_KEY = 'azeroth.wowDir';
 const SHARE_LIVE_KEY = 'azeroth.shareLive';
 const PAUSED_KEY = 'azeroth.paused';
-const LIVE_SYNC_KEY = 'azeroth.liveSync';
 const LAST_SYNC_KEY = 'azeroth.lastSyncAt';
 const RETRY_SECONDS = 30;
 /** How often the addon's SavedVariables file is re-read (WoW itself only rewrites it on logout or /reload). */
@@ -39,7 +38,6 @@ export function App() {
   const [characters, setCharacters] = useState<DiscoveredCharacter[]>([]);
   const [folderCheck, setFolderCheck] = useState<{ ok: boolean; message: string } | null>(null);
   const [shareLive, setShareLive] = useState(() => localStorage.getItem(SHARE_LIVE_KEY) === '1');
-  const [liveSync, setLiveSync] = useState(() => localStorage.getItem(LIVE_SYNC_KEY) === '1');
   const [resetError, setResetError] = useState<string | null>(null);
   const [paused, setPaused] = useState(() => localStorage.getItem(PAUSED_KEY) === '1');
 
@@ -243,8 +241,6 @@ export function App() {
       characters={characters}
       shareLive={shareLive}
       onShareLiveChange={(v) => { setShareLive(v); localStorage.setItem(SHARE_LIVE_KEY, v ? '1' : '0'); }}
-      liveSync={liveSync}
-      onLiveSyncChange={(v) => { setLiveSync(v); localStorage.setItem(LIVE_SYNC_KEY, v ? '1' : '0'); }}
       resetError={resetError}
       onReset={() => void resetDevice()}
       updater={updater}
@@ -265,8 +261,6 @@ interface ContainerProps {
   characters: DiscoveredCharacter[];
   shareLive: boolean;
   onShareLiveChange: (v: boolean) => void;
-  liveSync: boolean;
-  onLiveSyncChange: (v: boolean) => void;
   resetError: string | null;
   onReset: () => void;
   updater: UpdateController;
@@ -305,13 +299,15 @@ function StatusContainer({ deviceToken, deviceId, paused, updater, flushRef, ...
   const wowDirRef = useRef(rest.wowDir);
   wowDirRef.current = rest.wowDir;
   const syncing = useRef(false);
+  const activeRef = useRef<LivePresence | undefined>(undefined);
   const sync = useCallback(async () => {
     if (syncing.current || pausedRef.current || !wowDirRef.current) return;
     syncing.current = true;
     try {
       const dir = wowDirRef.current;
       const api = new ApiClient({ baseUrl: API_BASE_URL, getToken: () => tokenRef.current });
-      const r = await syncSavedVariables({ readFiles: () => native.readSavedVariables(dir), api, queue, deviceId, shareLive: rest.shareLive });
+      const r = await syncSavedVariables({ readFiles: () => native.readSavedVariables(dir), api, queue, deviceId });
+      if (r.active) activeRef.current = r.active;
       setSyncError(r.errors[0] ?? null);
       if (r.queued > 0) void queue.flush();
     } catch (e) {
@@ -326,13 +322,14 @@ function StatusContainer({ deviceToken, deviceId, paused, updater, flushRef, ...
     return () => clearInterval(id);
   }, [sync, rest.wowDir, paused]);
 
-  // Live sync over WebSocket: when enabled, the companion stays connected to the API
-  // and re-runs capture+upload whenever the socket signals activity.
+  // Live presence over WebSocket: while the companion runs, is not paused and the user shares live, it holds a
+  // socket to the API and heartbeats the character being played. The API shows them online until the socket drops.
+  const liveOn = rest.shareLive && !paused;
   useEffect(() => {
-    if (!rest.liveSync) return;
-    const handle = connectLiveSync(API_BASE_URL, tokenRef.current, () => void sync(), () => rest.liveSync);
+    if (!liveOn) return;
+    const handle = connectLiveSync(API_BASE_URL, () => tokenRef.current, () => activeRef.current, () => liveOn);
     return () => handle.close();
-  }, [rest.liveSync, sync]);
+  }, [liveOn]);
 
   // Before an update restarts the app: pick up fresh captures and upload what is queued. While paused the queue is
   // left alone (it is persisted and resumes after the restart).
