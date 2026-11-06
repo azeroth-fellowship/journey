@@ -9,6 +9,9 @@ import {
   DungeonLeftPayload,
   LevelUpPayload,
   QuestCompletedPayload,
+  RaidCompletedPayload,
+  RaidEnteredPayload,
+  RaidLeftPayload,
   SessionEndedPayload,
   SessionStartedPayload,
   ZoneChangedPayload,
@@ -72,6 +75,9 @@ export const PublicJourneyEvent = z.discriminatedUnion('type', [
   PublicEventBase.extend({ type: z.literal('dungeon_entered'), payload: DungeonEnteredPayload }),
   PublicEventBase.extend({ type: z.literal('dungeon_completed'), payload: DungeonCompletedPayload }),
   PublicEventBase.extend({ type: z.literal('dungeon_left'), payload: DungeonLeftPayload }),
+  PublicEventBase.extend({ type: z.literal('raid_entered'), payload: RaidEnteredPayload }),
+  PublicEventBase.extend({ type: z.literal('raid_completed'), payload: RaidCompletedPayload }),
+  PublicEventBase.extend({ type: z.literal('raid_left'), payload: RaidLeftPayload }),
   PublicEventBase.extend({ type: z.literal('boss_killed'), payload: BossKilledPayload }),
 ]);
 

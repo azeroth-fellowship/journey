@@ -82,7 +82,28 @@ local function kinds()
   expect(#eventsOf("dungeon_entered")).toBe(0)
   goOut()
   goInto("raid", { name = "Molten Core", instanceID = 409 })
-  expect(#eventsOf("dungeon_entered")).toBe(1)
+  expect(#eventsOf("dungeon_entered")).toBe(0)
+  expect(#eventsOf("raid_entered")).toBe(1)
+  expect(eventsOf("raid_entered")[1].payload.instanceKind).toBe("raid")
+  expect(eventsOf("raid_entered")[1].payload.dungeonId).toBe("409")
+  goOut()
+  expect(#eventsOf("raid_left")).toBe(1)
+  expect(#eventsOf("dungeon_left")).toBe(0)
+end
+
+@test("5-man dungeons are tagged as dungeons")
+local function dungeonKind()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  expect(eventsOf("dungeon_entered")[1].payload.instanceKind).toBe("dungeon")
+end
+
+@test("moving through an instance logs no zone_changed")
+local function noZoneEventsForInstances()
+  goInto("party", { name = "The Deadmines", instanceID = 36 })
+  fireEvent("ZONE_CHANGED_NEW_AREA")
+  goOut()
+  fireEvent("ZONE_CHANGED_NEW_AREA")
+  expect(#eventsOf("zone_changed")).toBe(0)
 end
 
 @test("boss kills inside a dungeon emit boss_killed once per boss")
