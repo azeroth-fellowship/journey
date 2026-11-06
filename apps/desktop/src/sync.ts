@@ -37,6 +37,8 @@ export interface SyncResult {
   skipped: number;
   /** Per-step failures; those steps are retried on the next round. */
   errors: string[];
+  /** The character seen most recently (by updatedAt); the one the live heartbeat reports. */
+  active?: { characterId: string; zone?: string; level?: number };
 }
 
 const STORAGE_KEY = 'azeroth.syncState';
@@ -69,7 +71,6 @@ export async function syncSavedVariables(deps: {
   queue: UploadQueue;
   deviceId: string;
   store?: SyncStore;
-  shareLive?: boolean;
 }): Promise<SyncResult> {
   const store = deps.store ?? localSyncStore;
   const result: SyncResult = { characters: 0, queued: 0, skipped: 0, errors: [] };
@@ -95,6 +96,9 @@ export async function syncSavedVariables(deps: {
   const known = new Set(q.uploadedEventIds);
   for (const b of q.batches) for (const e of b.events) known.add(e.id);
 
+  const newest = [...mapped.characters].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  if (newest) result.active = { characterId: newest.id, ...(newest.zone ? { zone: newest.zone } : {}), ...(newest.level ? { level: newest.level } : {}) };
+
   for (const character of mapped.characters) {
     const fresh = mapped.events.filter((e) => e.characterId === character.id && !isSettled(q, e, known));
     const sessions = mapped.sessions.filter((s) => s.characterId === character.id && state.sessions[s.id] !== sessionSignature(s));
@@ -104,18 +108,6 @@ export async function syncSavedVariables(deps: {
       if (state.characters[character.id] !== characterSignature(character)) {
         await deps.api.registerCharacter(character);
         state.characters[character.id] = characterSignature(character);
-      }
-      if (deps.shareLive) {
-        const now = new Date();
-        await deps.api.upsertPresence({
-          characterId: character.id,
-          userId: state.userId!,
-          isOnline: true,
-          ...(character.zone ? { zone: character.zone } : {}),
-          ...(character.level ? { level: character.level } : {}),
-          expiresAt: new Date(now.getTime() + 120_000).toISOString(),
-          updatedAt: now.toISOString(),
-        });
       }
     } catch (e) {
       result.errors.push(`Could not register ${character.name}: ${message(e)}`);
