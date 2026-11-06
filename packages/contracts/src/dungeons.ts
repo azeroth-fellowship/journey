@@ -2,29 +2,72 @@
 import { z } from 'zod';
 import { Id, IsoTimestamp } from './common';
 import { CharacterClass, CharacterRace } from './characters';
-import type { JourneyEvent } from './events';
+import { InstanceKind, type JourneyEvent } from './events';
+import foreverInstances from './data/forever-dungeons.json';
 
 // ---------------------------------------------------------------------------
 // Dungeon catalog
 // ---------------------------------------------------------------------------
 
+export interface CatalogQuest {
+  questId: string;
+  title: string;
+  /** Minimum level to take the quest; null when unknown. */
+  minLevel: number | null;
+  faction: 'alliance' | 'horde' | 'both';
+}
+
 export interface DungeonCatalogEntry {
   name: string;
+  /** "raid" for raids; absent or "dungeon" for 5-man instances. */
+  kind?: InstanceKind;
   /** Names (as the client reports them in boss_killed.bossName) of the encounters that end the dungeon. Killing any one completes it. */
   finalBossNames?: string[];
   minLevel?: number;
+  /** Wowhead's WoW: Forever zone id. Not the client's instance id. */
+  wowheadZoneId?: number;
+  /** Quests Wowhead files under this instance. May be empty while Wowhead has none. */
+  quests?: CatalogQuest[];
 }
 
 /** dungeonId -> entry. Ids are the ones the addon emits (see apps/addon/src/main.wowlua, `dungeonIdOf`). */
 export type DungeonCatalog = Record<string, DungeonCatalogEntry>;
 
+/** One instance as stored in data/forever-dungeons.json (scraped from Wowhead's WoW: Forever pages). */
+export interface ForeverInstance {
+  id: string;
+  wowheadZoneId: number;
+  altWowheadZoneIds?: number[];
+  /** The client's instance id (GetInstanceInfo, 8th result); null while not yet known. */
+  instanceId: number | null;
+  name: string;
+  kind: InstanceKind;
+  levelRange: [number, number] | null;
+  players: number | null;
+  quests: CatalogQuest[];
+}
+
+export const FOREVER_INSTANCES: readonly ForeverInstance[] = foreverInstances.dungeons as unknown as ForeverInstance[];
+
+/** Same slug the addon uses for its "name:<slug>" fallback id, so instances without a known instance id still match. */
+const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+
+/** The id the addon emits for an instance: its numeric instance id, else "name:<slug>". */
+export function dungeonIdFor(i: Pick<ForeverInstance, 'instanceId' | 'name'>): string {
+  return i.instanceId ? String(i.instanceId) : `name:${slug(i.name)}`;
+}
+
 /**
- * Intentionally EMPTY. WoW Forever's instance list, instance ids and boss names are not known until the client
- * releases (2026-11-04); filling this table (id -> name, final bosses, level) then is what makes "completed"
- * derivable without an explicit dungeon_completed event. Until then a dungeon counts as completed only when a
- * dungeon_completed event exists.
+ * Built from data/forever-dungeons.json. Final bosses are still unknown, so "completed" comes from a dungeon_completed
+ * event until `finalBossNames` is filled in. Entries whose instance id is not known yet are keyed "name:<slug>",
+ * which is what the addon emits when the client gives no id; re-key them once the real ids have been seen in game.
  */
-export const DUNGEON_CATALOG: DungeonCatalog = {};
+export const DUNGEON_CATALOG: DungeonCatalog = Object.fromEntries(
+  FOREVER_INSTANCES.map((i): [string, DungeonCatalogEntry] => [
+    dungeonIdFor(i),
+    { name: i.name, kind: i.kind, ...(i.levelRange ? { minLevel: i.levelRange[0] } : {}), wowheadZoneId: i.wowheadZoneId, quests: i.quests },
+  ]),
+);
 
 // ---------------------------------------------------------------------------
 // Progress
@@ -36,6 +79,8 @@ export const DungeonQuest = z.object({ questId: z.string().min(1), title: z.stri
 export const DungeonProgress = z.object({
   dungeonId: z.string().min(1),
   dungeonName: z.string().min(1),
+  /** Raids are shown apart from dungeons; absent (older data) means dungeon. */
+  kind: InstanceKind.optional(),
   /** dungeon_entered events. */
   runs: z.number().int().nonnegative(),
   /** dungeon_completed events (explicit signal from the client). */
@@ -76,8 +121,34 @@ export function isDungeonCompleted(
   return finals.some((b) => killed.has(norm(b)));
 }
 
+/**
+ * Raids are recorded and counted but not shown anywhere yet (they are not released). Flip to true to show them: the
+ * web timeline, the Raids filter, the character page's Raids section and the public journey all read this.
+ */
+export const RAIDS_VISIBLE = false;
+
+/** A dungeon progress row for a raid: its own kind, else what the catalog says. */
+export function isRaidProgress(d: Pick<DungeonProgress, 'dungeonId' | 'kind'>, catalog: DungeonCatalog = DUNGEON_CATALOG): boolean {
+  return (d.kind ?? catalog[d.dungeonId]?.kind) === 'raid';
+}
+
+/** The progress rows that may be shown: all of them, or without raids while RAIDS_VISIBLE is false. */
+export function visibleDungeons<T extends Pick<DungeonProgress, 'dungeonId' | 'kind'>>(list: readonly T[], showRaids: boolean = RAIDS_VISIBLE): T[] {
+  return showRaids ? [...list] : list.filter((d) => !isRaidProgress(d));
+}
+
+/** raid_* events, and boss kills inside a raid. */
+export function isRaidEvent(e: JourneyEvent): boolean {
+  if (e.type === 'raid_entered' || e.type === 'raid_left' || e.type === 'raid_completed') return true;
+  return e.type === 'boss_killed' && e.payload.instanceKind === 'raid';
+}
+
 /** Event types buildDungeonProgress reads (quest_completed only when it carries a dungeonId). */
-export const DUNGEON_EVENT_TYPES = ['dungeon_entered', 'dungeon_left', 'boss_killed', 'dungeon_completed', 'quest_completed'] as const;
+export const DUNGEON_EVENT_TYPES = [
+  'dungeon_entered', 'dungeon_left', 'dungeon_completed',
+  'raid_entered', 'raid_left', 'raid_completed',
+  'boss_killed', 'quest_completed',
+] as const;
 
 /**
  * Folds a character's events (any order) into per-dungeon progress, newest-visited dungeon first.
@@ -87,19 +158,26 @@ export function buildDungeonProgress(events: readonly JourneyEvent[], catalog: D
   const byId = new Map<string, DungeonProgress>();
   const ordered = [...events].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
   for (const e of ordered) {
-    if (e.type !== 'dungeon_entered' && e.type !== 'dungeon_left' && e.type !== 'boss_killed' && e.type !== 'dungeon_completed' && e.type !== 'quest_completed') continue;
+    if (
+      e.type !== 'dungeon_entered' && e.type !== 'dungeon_left' && e.type !== 'dungeon_completed' &&
+      e.type !== 'raid_entered' && e.type !== 'raid_left' && e.type !== 'raid_completed' &&
+      e.type !== 'boss_killed' && e.type !== 'quest_completed'
+    ) continue;
     const p = e.payload;
+    const raidEvent = e.type === 'raid_entered' || e.type === 'raid_left' || e.type === 'raid_completed';
     if (!p.dungeonId) continue;
     const name = p.dungeonName ?? catalog[p.dungeonId]?.name;
     let d = byId.get(p.dungeonId);
     if (!d) {
-      d = { dungeonId: p.dungeonId, dungeonName: name ?? p.dungeonId, runs: 0, completions: 0, lastVisitedAt: e.occurredAt, bossesKilled: [], questsCompleted: [], completed: false };
+      d = { dungeonId: p.dungeonId, dungeonName: name ?? p.dungeonId, kind: raidEvent ? 'raid' : (p.instanceKind ?? catalog[p.dungeonId]?.kind ?? 'dungeon'), runs: 0, completions: 0, lastVisitedAt: e.occurredAt, bossesKilled: [], questsCompleted: [], completed: false };
       byId.set(p.dungeonId, d);
     }
     if (name) d.dungeonName = name;
+    if (raidEvent) d.kind = 'raid';
+    else if (p.instanceKind) d.kind = p.instanceKind;
     d.lastVisitedAt = e.occurredAt;
-    if (e.type === 'dungeon_entered') d.runs++;
-    else if (e.type === 'dungeon_completed') d.completions++;
+    if (e.type === 'dungeon_entered' || e.type === 'raid_entered') d.runs++;
+    else if (e.type === 'dungeon_completed' || e.type === 'raid_completed') d.completions++;
     else if (e.type === 'boss_killed') {
       if (!d.bossesKilled.some((b) => norm(b) === norm(e.payload.bossName))) d.bossesKilled.push(e.payload.bossName);
     } else if (e.type === 'quest_completed') {
@@ -110,6 +188,31 @@ export function buildDungeonProgress(events: readonly JourneyEvent[], catalog: D
     // one canonical timestamp format, whatever the store hands back
     .map((d) => ({ ...d, lastVisitedAt: new Date(d.lastVisitedAt).toISOString(), completed: isDungeonCompleted(d, catalog) }))
     .sort((a, b) => Date.parse(b.lastVisitedAt) - Date.parse(a.lastVisitedAt) || a.dungeonName.localeCompare(b.dungeonName));
+}
+
+/** One catalog quest and whether the character has turned it in. */
+export interface DungeonQuestStatus extends CatalogQuest {
+  done: boolean;
+}
+
+/**
+ * Every quest the catalog lists for a dungeon, each marked done when the character's events show it turned in
+ * (anywhere, not only inside the dungeon: a quest id is a quest id). Empty for a dungeon the catalog does not know.
+ */
+export function dungeonQuestStatus(
+  dungeonId: string,
+  completedQuestIds: Iterable<string>,
+  catalog: DungeonCatalog = DUNGEON_CATALOG,
+): DungeonQuestStatus[] {
+  const done = new Set(completedQuestIds);
+  return (catalog[dungeonId]?.quests ?? []).map((q) => ({ ...q, done: done.has(q.questId) }));
+}
+
+/** Ids of every quest a character has turned in, from its events (any dungeon or none). */
+export function completedQuestIds(events: readonly JourneyEvent[]): Set<string> {
+  const ids = new Set<string>();
+  for (const e of events) if (e.type === 'quest_completed') ids.add(e.payload.questId);
+  return ids;
 }
 
 // ---------------------------------------------------------------------------

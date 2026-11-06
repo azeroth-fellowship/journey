@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, it, expect } from 'vitest';
-import { JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
+import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
 
 describe('JourneyEvent schema', () => {
   it('parses a level_up event', () => {
@@ -113,5 +113,69 @@ describe('dungeon events and progress', () => {
     expect(isDungeonCompleted(p, { 'i-1': { name: 'Deadmines', finalBossNames: ["RHAHK'ZOR"] } })).toBe(true);
     expect(isDungeonCompleted(p, { 'i-1': { name: 'Deadmines' } })).toBe(false);
     expect(buildDungeonProgress(events, { 'i-1': { name: 'Deadmines', finalBossNames: ["Rhahk'Zor"] } })[0]!.completed).toBe(true);
+  });
+});
+
+describe('forever dungeon catalog', () => {
+  const ev = (id: string, at: string, type: string, payload: unknown) =>
+    JourneyEvent.parse({ characterId: 'c', sessionId: 's', id, occurredAt: `2026-10-29T${at}.000Z`, type, payload });
+  it('has unique dungeon ids and well-formed quests', () => {
+    const ids = FOREVER_INSTANCES.map(dungeonIdFor);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const i of FOREVER_INSTANCES) {
+      expect(['dungeon', 'raid']).toContain(i.kind);
+      expect(new Set(i.quests.map((q) => q.questId)).size).toBe(i.quests.length);
+      for (const q of i.quests) expect(q.questId).toMatch(/^\d+$/);
+    }
+  });
+
+  it('keys by client instance id, else the addon name slug, and splits raids from dungeons', () => {
+    expect(DUNGEON_CATALOG['36']).toMatchObject({ name: 'The Deadmines', kind: 'dungeon' });
+    expect(DUNGEON_CATALOG['409']).toMatchObject({ name: 'Molten Core', kind: 'raid' });
+    expect(DUNGEON_CATALOG['name:the-drowned-city']?.quests?.length).toBeGreaterThan(0);
+  });
+
+  it('marks which of a dungeon\'s quests a character has turned in', () => {
+    const events = [
+      ev('1', '10:00:00', 'quest_completed', { questId: '166', questName: 'The Defias Brotherhood' }),
+      ev('2', '10:01:00', 'quest_completed', { questId: '999999', questName: 'Elsewhere' }),
+    ];
+    const status = dungeonQuestStatus('36', completedQuestIds(events));
+    expect(status.find((q) => q.questId === '166')?.done).toBe(true);
+    expect(status.filter((q) => q.done)).toHaveLength(1);
+    expect(dungeonQuestStatus('nope', [])).toEqual([]);
+  });
+
+  it('folds raid events into raid progress', () => {
+    const p = buildDungeonProgress([
+      ev('1', '10:00:00', 'raid_entered', { dungeonId: '409', dungeonName: 'Molten Core' }),
+      ev('2', '10:30:00', 'boss_killed', { dungeonId: '409', bossName: 'Lucifron' }),
+      ev('3', '11:00:00', 'raid_completed', { dungeonId: '409', dungeonName: 'Molten Core' }),
+      ev('4', '11:05:00', 'raid_left', { dungeonId: '409', dungeonName: 'Molten Core', durationSeconds: 3900 }),
+    ]);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatchObject({ kind: 'raid', runs: 1, completions: 1, completed: true, bossesKilled: ['Lucifron'] });
+  });
+
+  it('hides raids while RAIDS_VISIBLE is false, but keeps counting them', () => {
+    expect(RAIDS_VISIBLE).toBe(false);
+    const rows = [
+      { dungeonId: '36', kind: 'dungeon' as const },
+      { dungeonId: '409', kind: 'raid' as const },
+      { dungeonId: '533' }, // no kind on the row: the catalog says Naxxramas is a raid
+      { dungeonId: 'unknown' },
+    ];
+    expect(visibleDungeons(rows).map((d) => d.dungeonId)).toEqual(['36', 'unknown']);
+    expect(visibleDungeons(rows, true)).toHaveLength(4);
+    expect(isRaidEvent(ev('1', '10:00:00', 'raid_entered', { dungeonId: '409', dungeonName: 'Molten Core' }))).toBe(true);
+    expect(isRaidEvent(ev('2', '10:00:00', 'boss_killed', { dungeonId: '409', bossName: 'Lucifron', instanceKind: 'raid' }))).toBe(true);
+    expect(isRaidEvent(ev('3', '10:00:00', 'boss_killed', { dungeonId: '36', bossName: 'VanCleef', instanceKind: 'dungeon' }))).toBe(false);
+    expect(isRaidEvent(ev('4', '10:00:00', 'dungeon_entered', { dungeonId: '36', dungeonName: 'The Deadmines' }))).toBe(false);
+  });
+
+  it('carries the instance kind from events into progress', () => {
+    const p = buildDungeonProgress([ev('1', '10:00:00', 'dungeon_entered', { dungeonId: '409', dungeonName: 'Molten Core', instanceKind: 'raid' })]);
+    expect(p[0]?.kind).toBe('raid');
+    expect(buildDungeonProgress([ev('1', '10:00:00', 'dungeon_entered', { dungeonId: '409', dungeonName: 'Molten Core' })])[0]?.kind).toBe('raid');
   });
 });

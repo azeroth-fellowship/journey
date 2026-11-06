@@ -118,7 +118,7 @@ local function readInstance(): any
   if type(name) ~= "string" or name == "" then return nil end
   local difficulty = nil
   if type(difficultyName) == "string" and difficultyName ~= "" then difficulty = difficultyName end
-  return { id = dungeonIdOf(name, instanceId), name = name, difficulty = difficulty, kind = kind }
+  return { id = dungeonIdOf(name, instanceId), name = name, difficulty = difficulty, kind = kind, instanceKind = (kind == "raid") and "raid" or "dungeon" }
 end
 
 local function groupSize(): number?
@@ -137,15 +137,21 @@ end
 local function saveInstance()
   _G.AzerothJourneyDB.activeInstances = _G.AzerothJourneyDB.activeInstances or {}
   local cur = state.instance
-  _G.AzerothJourneyDB.activeInstances[state.characterId] = cur and { id = cur.id, name = cur.name, enteredAt = cur.enteredAt } or nil
+  _G.AzerothJourneyDB.activeInstances[state.characterId] = cur and { id = cur.id, name = cur.name, enteredAt = cur.enteredAt, instanceKind = cur.instanceKind } or nil
+end
+
+-- Raids have their own event types (raid_entered / raid_left / raid_completed); everything else about them is the same.
+local function instanceEvent(inst: any, dungeonType: string, raidType: string): string
+  if inst and inst.instanceKind == "raid" then return raidType end
+  return dungeonType
 end
 
 local function leaveInstance(prev: any, withDuration: boolean)
-  local payload: any = { dungeonId = prev.id, dungeonName = prev.name }
+  local payload: any = { dungeonId = prev.id, dungeonName = prev.name, instanceKind = prev.instanceKind }
   if withDuration and type(prev.enteredAt) == "number" then
     payload.durationSeconds = math.max(0, time() - prev.enteredAt)
   end
-  pushEvent("dungeon_left", payload)
+  pushEvent(instanceEvent(prev, "dungeon_left", "raid_left"), payload)
 end
 
 -- Compares where the player is with what we last knew and emits dungeon_entered / dungeon_left.
@@ -166,7 +172,7 @@ local function syncInstance()
     else
       if saved and not prev then leaveInstance(saved, false) end -- the session ended inside another instance
       cur.enteredAt = time()
-      pushEvent("dungeon_entered", { dungeonId = cur.id, dungeonName = cur.name, difficulty = cur.difficulty, partySize = groupSize() })
+      pushEvent(instanceEvent(cur, "dungeon_entered", "raid_entered"), { dungeonId = cur.id, dungeonName = cur.name, difficulty = cur.difficulty, partySize = groupSize(), instanceKind = cur.instanceKind })
     end
     cur.bosses = {}
     state.instance = cur
@@ -183,7 +189,7 @@ local function bossKilled(name: any, encounterId: any)
   local key = string.lower(name)
   if inst.bosses[key] then return end
   inst.bosses[key] = true
-  local payload: any = { dungeonId = inst.id, dungeonName = inst.name, bossName = name }
+  local payload: any = { dungeonId = inst.id, dungeonName = inst.name, bossName = name, instanceKind = inst.instanceKind }
   if encounterId ~= nil then payload.encounterId = tostring(encounterId) end
   pushEvent("boss_killed", payload)
 end
@@ -193,7 +199,7 @@ local function dungeonCompleted()
   local inst = state.instance
   if not inst or inst.completed then return end
   inst.completed = true
-  pushEvent("dungeon_completed", { dungeonId = inst.id, dungeonName = inst.name, difficulty = inst.difficulty })
+  pushEvent(instanceEvent(inst, "dungeon_completed", "raid_completed"), { dungeonId = inst.id, dungeonName = inst.name, difficulty = inst.difficulty, instanceKind = inst.instanceKind })
 end
 
 local function startSession()
@@ -355,9 +361,27 @@ local function onEnteringWorld()
   saveProfile()
 end
 
+-- Continents and zones count as "big" zones; dungeons (4), micro/sub areas (5) and orphans (6) do not. Clients without
+-- C_Map cannot tell, and ZONE_CHANGED_NEW_AREA is already the major-zone event there, so they count as big.
+local function isMajorZone(): boolean
+  local cmap = _G.C_Map
+  if type(cmap) ~= "table" or type(cmap.GetBestMapForUnit) ~= "function" or type(cmap.GetMapInfo) ~= "function" then return true end
+  local major = true
+  pcall(function()
+    local mapId = cmap.GetBestMapForUnit("player")
+    local info = mapId and cmap.GetMapInfo(mapId)
+    if type(info) == "table" and type(info.mapType) == "number" and info.mapType > 3 then major = false end
+  end)
+  return major
+end
+
 @event("ZONE_CHANGED_NEW_AREA")
 local function onZoneChanged()
   syncInstance()
+  -- Inside a dungeon/raid the zone text is the instance; dungeon_entered / dungeon_left cover that. currentZone keeps the
+  -- outdoor zone, so walking out into the same zone you walked in from is not a zone change either.
+  if state.instance then return end
+  if not isMajorZone() then return end
   local newZone = zoneName()
   if newZone and newZone ~= state.currentZone then
     -- With no previous zone this is the client announcing where the character logged in, not a journey.
@@ -417,6 +441,7 @@ local function onQuestTurnedIn(questId: any, xpReward: any)
   if inst then
     payload.dungeonId = inst.id
     payload.dungeonName = inst.name
+    payload.instanceKind = inst.instanceKind
   end
   pushEvent("quest_completed", payload)
 end

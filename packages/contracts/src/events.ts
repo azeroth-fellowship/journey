@@ -24,6 +24,10 @@ export const LevelUpPayload = z.object({
   zone: z.string().min(1).optional(),
 });
 
+/** Dungeons (5-man) and raids are told apart by the client's instance type; absent on older events means dungeon. */
+export const InstanceKind = z.enum(['dungeon', 'raid']);
+export type InstanceKind = z.infer<typeof InstanceKind>;
+
 export const QuestCompletedPayload = z.object({
   questId: z.string().min(1),
   questName: z.string().min(1),
@@ -32,6 +36,7 @@ export const QuestCompletedPayload = z.object({
   /** Set when the quest was turned in while inside an instance (same id scheme as dungeon_entered). */
   dungeonId: z.string().min(1).optional(),
   dungeonName: z.string().min(1).optional(),
+  instanceKind: InstanceKind.optional(),
 });
 
 export const ZoneChangedPayload = z.object({
@@ -54,6 +59,7 @@ export const DungeonEnteredPayload = z.object({
   dungeonName: z.string().min(1),
   difficulty: z.string().min(1).optional(),
   partySize: z.number().int().positive().optional(),
+  instanceKind: InstanceKind.optional(),
 });
 
 export const DungeonLeftPayload = z.object({
@@ -61,6 +67,7 @@ export const DungeonLeftPayload = z.object({
   dungeonName: z.string().min(1),
   /** Time since the matching dungeon_entered, when the addon knew it. */
   durationSeconds: z.number().int().nonnegative().optional(),
+  instanceKind: InstanceKind.optional(),
 });
 
 export const BossKilledPayload = z.object({
@@ -68,6 +75,7 @@ export const BossKilledPayload = z.object({
   dungeonName: z.string().min(1).optional(),
   bossName: z.string().min(1),
   encounterId: z.string().min(1).optional(),
+  instanceKind: InstanceKind.optional(),
 });
 
 /** Emitted only when the client gives an explicit completion signal; see dungeons.ts for the fallback. */
@@ -78,7 +86,13 @@ export const DungeonCompletedPayload = z.object({
   durationSeconds: z.number().int().nonnegative().optional(),
   /** Legacy (simulator-era) field; absent means success. */
   success: z.boolean().optional(),
+  instanceKind: InstanceKind.optional(),
 });
+
+/** Raid events carry the same payloads as the dungeon ones (dungeonId is the instance id for raids too). */
+export const RaidEnteredPayload = DungeonEnteredPayload;
+export const RaidLeftPayload = DungeonLeftPayload;
+export const RaidCompletedPayload = DungeonCompletedPayload;
 
 // ---------------------------------------------------------------------------
 // Event type enum
@@ -94,6 +108,9 @@ export const EventType = z.enum([
   'dungeon_entered',
   'dungeon_completed',
   'dungeon_left',
+  'raid_entered',
+  'raid_completed',
+  'raid_left',
   'boss_killed',
 ]);
 
@@ -121,6 +138,9 @@ export const JourneyEvent = z.discriminatedUnion('type', [
   EventBase.extend({ type: z.literal('dungeon_entered'), payload: DungeonEnteredPayload }),
   EventBase.extend({ type: z.literal('dungeon_completed'), payload: DungeonCompletedPayload }),
   EventBase.extend({ type: z.literal('dungeon_left'), payload: DungeonLeftPayload }),
+  EventBase.extend({ type: z.literal('raid_entered'), payload: RaidEnteredPayload }),
+  EventBase.extend({ type: z.literal('raid_completed'), payload: RaidCompletedPayload }),
+  EventBase.extend({ type: z.literal('raid_left'), payload: RaidLeftPayload }),
   EventBase.extend({ type: z.literal('boss_killed'), payload: BossKilledPayload }),
 ]);
 

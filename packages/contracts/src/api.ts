@@ -45,6 +45,8 @@ export const SessionCounts = z.object({
   quests: z.number().int().nonnegative(),
   /** dungeon_entered events in the session. */
   dungeons: z.number().int().nonnegative(),
+  /** raid_entered events in the session. Counted, but not shown anywhere while RAIDS_VISIBLE is false. */
+  raids: z.number().int().nonnegative().optional(),
   levelUps: z.number().int().nonnegative(),
 });
 
