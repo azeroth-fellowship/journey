@@ -39,7 +39,7 @@ jobs:
           ref: ${{ env.TAG }}
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
       - name: Tag matches the version in package.json, tauri.conf.json and Cargo.toml
         id: v
         run: |
@@ -99,7 +99,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
