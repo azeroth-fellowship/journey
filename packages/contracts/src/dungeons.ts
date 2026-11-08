@@ -74,6 +74,20 @@ export const CATALOG_QUEST_IDS: readonly string[] = [
   ...new Set(Object.values(DUNGEON_CATALOG).flatMap((d) => (d.quests ?? []).map((q) => q.questId))),
 ];
 
+/**
+ * The catalog entry for a dungeon row. The client's instance id is not known for every Forever instance, so a row
+ * may carry an id the catalog does not key (e.g. a numeric map id where the catalog has "name:<slug>"); the name
+ * then finds it.
+ */
+export function catalogEntryFor(dungeonId: string, dungeonName: string | undefined, catalog: DungeonCatalog = DUNGEON_CATALOG): DungeonCatalogEntry | undefined {
+  const direct = catalog[dungeonId];
+  if (direct || !dungeonName) return direct;
+  const bySlug = catalog[`name:${slug(dungeonName)}`];
+  if (bySlug) return bySlug;
+  const wanted = dungeonName.trim().toLowerCase();
+  return Object.values(catalog).find((e) => e.name.trim().toLowerCase() === wanted);
+}
+
 /** Horde races; every other race is Alliance. */
 const HORDE_RACES: ReadonlySet<string> = new Set(['orc', 'undead', 'tauren', 'troll', 'blood_elf']);
 
@@ -205,7 +219,7 @@ export function buildDungeonProgress(events: readonly JourneyEvent[], catalog: D
   }
   if (untaggedQuests.length > 0) {
     for (const [dungeonId, d] of byId) {
-      const listed = new Set((catalog[dungeonId]?.quests ?? []).map((q) => q.questId));
+      const listed = new Set((catalogEntryFor(dungeonId, d.dungeonName, catalog)?.quests ?? []).map((q) => q.questId));
       for (const q of untaggedQuests) {
         if (listed.has(q.questId) && !d.questsCompleted.some((x) => x.questId === q.questId)) d.questsCompleted.push(q);
       }
@@ -232,9 +246,11 @@ export function dungeonQuestStatus(
   catalog: DungeonCatalog = DUNGEON_CATALOG,
   /** When given, quests for the other faction are left out. */
   faction?: 'alliance' | 'horde',
+  /** Finds the catalog entry by name when the id is not one the catalog keys. */
+  dungeonName?: string,
 ): DungeonQuestStatus[] {
   const done = new Set(completedQuestIds);
-  return (catalog[dungeonId]?.quests ?? [])
+  return (catalogEntryFor(dungeonId, dungeonName, catalog)?.quests ?? [])
     .filter((q) => !faction || q.faction === 'both' || q.faction === faction)
     .map((q) => ({ ...q, done: done.has(q.questId) }));
 }

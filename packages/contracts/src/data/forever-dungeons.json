@@ -1,4 +1,4 @@
-{"source":"https://www.wowhead.com/forever/zones/dungeons","generatedAt":"2026-11-05T22:16:00.727Z","note":"Scraped from Wowhead WoW: Forever zone pages. wowheadZoneId is NOT the client instance id; instanceId (GetInstanceInfo 8th result) is filled only where known (classic ids), null otherwise. faction: both = no restriction.","dungeons":[
+{"source":"https://www.wowhead.com/forever/zones/dungeons","generatedAt":"2026-11-05T22:16:00.727Z","note":"Scraped from Wowhead WoW: Forever zone pages. wowheadZoneId is NOT the client instance id; instanceId (GetInstanceInfo 8th result) is filled only where known (classic ids), null otherwise. faction: both = no restriction. Quests reconciled 2026-11-08 against https://www.wowhead.com/forever/quests/dungeons (zone pages also listed unrelated attunement/placeholder quests).","dungeons":[
 {"id":"ragefire-chasm","wowheadZoneId":2437,"instanceId":389,"name":"Ragefire Chasm","kind":"dungeon","levelRange":[15,25],"players":5,"quests":[
 {"questId":"5722","title":"Searching for the Lost Satchel","minLevel":9,"faction":"horde"},
 {"questId":"5723","title":"Testing an Enemy's Strength","minLevel":9,"faction":"horde"},
@@ -12,9 +12,7 @@
 {"questId":"167","title":"Oh Brother...","minLevel":15,"faction":"alliance"},
 {"questId":"168","title":"Collecting Memories","minLevel":14,"faction":"alliance"},
 {"questId":"214","title":"Red Silk Bandanas","minLevel":14,"faction":"alliance"},
-{"questId":"373","title":"The Unsent Letter","minLevel":16,"faction":"alliance"},
 {"questId":"2040","title":"Underground Assault","minLevel":15,"faction":"alliance"},
-{"questId":"7938","title":"Your Fortune Awaits You...","minLevel":10,"faction":"both"},
 {"questId":"92753","title":"Destruction in Deadmines","minLevel":9,"faction":"alliance"}
 ]},
 {"id":"wailing-caverns","wowheadZoneId":718,"instanceId":43,"name":"Wailing Caverns","kind":"dungeon","levelRange":[17,27],"players":5,"quests":[
@@ -29,11 +27,9 @@
 {"questId":"1491","title":"Smart Drinks","minLevel":13,"faction":"both"},
 {"questId":"1500","title":"Waking Naralex","minLevel":10,"faction":"both"},
 {"questId":"3366","title":"The Glowing Shard","minLevel":15,"faction":"both"},
-{"questId":"6981","title":"The Glowing Shard","minLevel":15,"faction":"both"},
-{"questId":"7944","title":"Your Fortune Awaits You...","minLevel":10,"faction":"both"}
+{"questId":"6981","title":"The Glowing Shard","minLevel":15,"faction":"both"}
 ]},
 {"id":"blackfathom-deeps","wowheadZoneId":719,"instanceId":48,"name":"Blackfathom Deeps","kind":"dungeon","levelRange":[22,32],"players":5,"quests":[
-{"questId":"909","title":"Baron Aquanis","minLevel":25,"faction":"horde"},
 {"questId":"971","title":"Knowledge in the Deeps","minLevel":18,"faction":"alliance"},
 {"questId":"1198","title":"In Search of Thaelrid","minLevel":18,"faction":"alliance"},
 {"questId":"1199","title":"Twilight Falls","minLevel":20,"faction":"alliance"},
@@ -45,7 +41,6 @@
 {"questId":"6564","title":"Allegiance to the Old Gods","minLevel":17,"faction":"horde"},
 {"questId":"6565","title":"Allegiance to the Old Gods","minLevel":17,"faction":"horde"},
 {"questId":"6921","title":"Amongst the Ruins","minLevel":21,"faction":"horde"},
-{"questId":"6922","title":"Baron Aquanis","minLevel":21,"faction":"horde"},
 {"questId":"78916","title":"The Heart of the Void","minLevel":25,"faction":"alliance"},
 {"questId":"78917","title":"The Heart of the Void","minLevel":25,"faction":"horde"}
 ]},
@@ -107,8 +102,7 @@
 {"questId":"1109","title":"Going, Going, Guano!","minLevel":30,"faction":"horde"},
 {"questId":"1142","title":"Mortality Wanes","minLevel":25,"faction":"alliance"},
 {"questId":"1144","title":"Willix the Importer","minLevel":22,"faction":"both"},
-{"questId":"1221","title":"Blueleaf Tubers","minLevel":20,"faction":"both"},
-{"questId":"6522","title":"An Unholy Alliance","minLevel":28,"faction":"horde"}
+{"questId":"1221","title":"Blueleaf Tubers","minLevel":20,"faction":"both"}
 ]},
 {"id":"razorfen-downs","wowheadZoneId":722,"instanceId":129,"name":"Razorfen Downs","kind":"dungeon","levelRange":[37,47],"players":5,"quests":[
 {"questId":"3341","title":"Bring the End","minLevel":37,"faction":"horde"},
@@ -117,7 +111,10 @@
 {"questId":"3636","title":"Bring the Light","minLevel":39,"faction":"alliance"},
 {"questId":"6521","title":"An Unholy Alliance","minLevel":28,"faction":"horde"},
 {"questId":"6522","title":"An Unholy Alliance","minLevel":28,"faction":"horde"},
-{"questId":"6626","title":"A Host of Evil","minLevel":28,"faction":"both"}
+{"questId":"6626","title":"A Host of Evil","minLevel":28,"faction":"both"},
+{"questId":"97196","title":"The Coldbringer's Eye","minLevel":34,"faction":"horde"},
+{"questId":"96773","title":"The Coldbringer's Eye","minLevel":34,"faction":"alliance"},
+{"questId":"93604","title":"Agamaggan's Blood","minLevel":35,"faction":"both"}
 ]},
 {"id":"maraudon","wowheadZoneId":2100,"instanceId":349,"name":"Maraudon","kind":"dungeon","levelRange":[42,52],"players":5,"quests":[
 {"questId":"7028","title":"Twisted Evils","minLevel":41,"faction":"both"},
@@ -131,7 +128,8 @@
 {"questId":"7067","title":"The Pariah's Instructions","minLevel":39,"faction":"both"},
 {"questId":"7068","title":"Shadowshard Fragments","minLevel":39,"faction":"horde"},
 {"questId":"7070","title":"Shadowshard Fragments","minLevel":39,"faction":"alliance"},
-{"questId":"8635","title":"Splitrock the Elder","minLevel":1,"faction":"both"}
+{"questId":"96776","title":"An'she's Radiance","minLevel":43,"faction":"horde"},
+{"questId":"93404","title":"Rot and Regret","minLevel":35,"faction":"both"}
 ]},
 {"id":"uldaman","wowheadZoneId":1337,"instanceId":70,"name":"Uldaman","kind":"dungeon","levelRange":[42,52],"players":5,"quests":[
 {"questId":"17","title":"Uldaman Reagent Run","minLevel":38,"faction":"alliance"},
@@ -196,36 +194,13 @@
 {"questId":"7506","title":"The Emerald Dream...","minLevel":54,"faction":"both"},
 {"questId":"7507","title":"Foror's Compendium","minLevel":60,"faction":"both"},
 {"questId":"7508","title":"The Forging of Quel'Serrar","minLevel":60,"faction":"both"},
-{"questId":"7509","title":"The Forging of Quel'Serrar","minLevel":60,"faction":"both"},
-{"questId":"7631","title":"Dreadsteed of Xoroth","minLevel":60,"faction":"both"},
-{"questId":"7643","title":"Ancient Equine Spirit","minLevel":60,"faction":"alliance"},
-{"questId":"7644","title":"Blessed Arcanite Barding","minLevel":60,"faction":"alliance"},
-{"questId":"7649","title":"Enchanted Thorium Platemail: Volume I","minLevel":50,"faction":"both"},
-{"questId":"7650","title":"Enchanted Thorium Platemail: Volume II","minLevel":50,"faction":"both"},
-{"questId":"7651","title":"Enchanted Thorium Platemail: Volume III","minLevel":50,"faction":"both"},
 {"questId":"7703","title":"Unfinished Gordok Business","minLevel":56,"faction":"both"},
 {"questId":"7877","title":"The Treasure of the Shen'dralar","minLevel":56,"faction":"both"},
 {"questId":"8948","title":"Anthion's Old Friend","minLevel":58,"faction":"both"},
 {"questId":"8949","title":"Falrin's Vendetta","minLevel":58,"faction":"both"},
 {"questId":"8950","title":"The Instigator's Enchantment","minLevel":58,"faction":"both"},
-{"questId":"8951","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8952","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8953","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"8954","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8955","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8956","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8957","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"8958","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8959","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
 {"questId":"8967","title":"The Left Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"8990","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"9015","title":"The Challenge","minLevel":58,"faction":"both"},
-{"questId":"9016","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9017","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9019","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"9020","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9021","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9022","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"}
+{"questId":"8990","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"}
 ]},
 {"id":"zul-farrak","wowheadZoneId":1176,"instanceId":209,"name":"Zul'Farrak","kind":"dungeon","levelRange":[46,56],"players":5,"quests":[
 {"questId":"2768","title":"Divino-matic Rod","minLevel":40,"faction":"both"},
@@ -234,12 +209,12 @@
 {"questId":"2861","title":"Tabetha's Task","minLevel":40,"faction":"both"},
 {"questId":"2864","title":"Tran'rek","minLevel":40,"faction":"both"},
 {"questId":"2865","title":"Scarab Shells","minLevel":40,"faction":"both"},
-{"questId":"2868","title":"The Shriveled Heart","minLevel":40,"faction":"both"},
 {"questId":"2936","title":"The Spider God","minLevel":40,"faction":"horde"},
 {"questId":"2991","title":"Nekrum's Medallion","minLevel":40,"faction":"alliance"},
 {"questId":"3042","title":"Troll Temper","minLevel":40,"faction":"both"},
 {"questId":"3527","title":"The Prophecy of Mosh'aru","minLevel":40,"faction":"both"},
-{"questId":"8676","title":"Wildmane the Elder","minLevel":1,"faction":"both"}
+{"questId":"96770","title":"The Witch Doctor's Head","minLevel":39,"faction":"alliance"},
+{"questId":"96775","title":"Zum'rah's Head","minLevel":42,"faction":"horde"}
 ]},
 {"id":"stratholme","wowheadZoneId":2017,"instanceId":329,"name":"Stratholme","kind":"dungeon","levelRange":[48,58],"players":5,"quests":[
 {"questId":"5122","title":"The Medallion of Faith","minLevel":55,"faction":"both"},
@@ -253,30 +228,11 @@
 {"questId":"5263","title":"Above and Beyond","minLevel":55,"faction":"both"},
 {"questId":"5282","title":"The Restless Souls","minLevel":55,"faction":"both"},
 {"questId":"5463","title":"Menethil's Gift","minLevel":57,"faction":"both"},
-{"questId":"5464","title":"Menethil's Gift","minLevel":57,"faction":"both"},
 {"questId":"5848","title":"Of Love and Family","minLevel":52,"faction":"both"},
 {"questId":"6163","title":"Ramstein","minLevel":56,"faction":"horde"},
-{"questId":"8727","title":"Farwhisper the Elder","minLevel":1,"faction":"both"},
 {"questId":"8945","title":"Dead Man's Plea","minLevel":58,"faction":"both"},
-{"questId":"8946","title":"Proof of Life","minLevel":58,"faction":"both"},
-{"questId":"8951","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8952","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8953","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"8954","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8955","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8956","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8957","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"8958","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8959","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
 {"questId":"8968","title":"The Left Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"8970","title":"I See Alcaz Island In Your Future...","minLevel":58,"faction":"both"},
-{"questId":"8991","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"9016","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9017","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9019","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"9020","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9021","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9022","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"}
+{"questId":"8991","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"}
 ]},
 {"id":"temple-of-atal-hakkar","wowheadZoneId":1477,"instanceId":109,"name":"The Temple of Atal'Hakkar","kind":"dungeon","levelRange":[50,60],"players":5,"altWowheadZoneIds":[1417],"quests":[
 {"questId":"1445","title":"The Temple of Atal'Hakkar","minLevel":38,"faction":"horde"},
@@ -288,7 +244,6 @@
 {"questId":"3446","title":"Into the Depths","minLevel":46,"faction":"both"},
 {"questId":"3447","title":"Secret of the Circle","minLevel":46,"faction":"both"},
 {"questId":"3528","title":"The God Hakkar","minLevel":40,"faction":"both"},
-{"questId":"8713","title":"Starsong the Elder","minLevel":1,"faction":"both"},
 {"questId":"8733","title":"Eranikus, Tyrant of the Dream","minLevel":60,"faction":"both"}
 ]},
 {"id":"blackrock-depths","wowheadZoneId":1584,"altWowheadZoneIds":[17803],"instanceId":230,"name":"Blackrock Depths","kind":"dungeon","levelRange":[52,60],"players":5,"quests":[
@@ -324,7 +279,6 @@
 {"questId":"4282","title":"A Shred of Hope","minLevel":50,"faction":"alliance"},
 {"questId":"4286","title":"The Good Stuff","minLevel":50,"faction":"alliance"},
 {"questId":"4295","title":"Rocknot's Ale","minLevel":1,"faction":"both"},
-{"questId":"4299","title":"The Tomb of the Seven","minLevel":50,"faction":"both"},
 {"questId":"4322","title":"Jail Break!","minLevel":50,"faction":"alliance"},
 {"questId":"4324","title":"Yuka Screwspigot","minLevel":48,"faction":"both"},
 {"questId":"4341","title":"Kharan Mighthammer","minLevel":50,"faction":"alliance"},
@@ -332,30 +286,10 @@
 {"questId":"4361","title":"The Bearer of Bad News","minLevel":50,"faction":"alliance"},
 {"questId":"4362","title":"The Fate of the Kingdom","minLevel":50,"faction":"alliance"},
 {"questId":"4363","title":"The Princess's Surprise","minLevel":50,"faction":"alliance"},
-{"questId":"6642","title":"Favor Amongst the Brotherhood, Dark Iron Ore","minLevel":60,"faction":"both"},
-{"questId":"6643","title":"Favor Amongst the Brotherhood, Fiery Core","minLevel":60,"faction":"both"},
-{"questId":"6644","title":"Favor Amongst the Brotherhood, Lava Core","minLevel":60,"faction":"both"},
-{"questId":"6645","title":"Favor Amongst the Brotherhood, Core Leather","minLevel":60,"faction":"both"},
-{"questId":"6646","title":"Favor Amongst the Brotherhood, Blood of the Mountain","minLevel":60,"faction":"both"},
 {"questId":"7201","title":"The Last Element","minLevel":48,"faction":"horde"},
 {"questId":"7604","title":"A Binding Contract","minLevel":60,"faction":"both"},
-{"questId":"8619","title":"Morndeep the Elder","minLevel":1,"faction":"both"},
-{"questId":"8951","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8952","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8953","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"8954","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8955","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8956","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8957","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"8958","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8959","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
 {"questId":"9015","title":"The Challenge","minLevel":58,"faction":"both"},
-{"questId":"9016","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9017","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9019","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"9020","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9021","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9022","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"}
+{"questId":"97197","title":"Fragment of the Firelands","minLevel":46,"faction":"horde"}
 ]},
 {"id":"scholomance","wowheadZoneId":2057,"instanceId":289,"name":"Scholomance","kind":"dungeon","levelRange":[55,60],"players":5,"quests":[
 {"questId":"4771","title":"Dawn's Gambit","minLevel":57,"faction":"both"},
@@ -368,30 +302,15 @@
 {"questId":"5529","title":"Plagued Hatchlings","minLevel":55,"faction":"both"},
 {"questId":"5531","title":"Betina Bigglezink","minLevel":57,"faction":"both"},
 {"questId":"5582","title":"Healthy Dragon Scale","minLevel":55,"faction":"both"},
-{"questId":"7647","title":"Judgment and Redemption","minLevel":60,"faction":"alliance"},
-{"questId":"8951","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8952","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8953","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"8954","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8955","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8956","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8957","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"8958","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8959","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
 {"questId":"8969","title":"The Left Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"8992","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"9016","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9017","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9019","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"9020","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9021","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9022","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"}
+{"questId":"8992","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"}
 ]},
 {"id":"alcaz-prison","wowheadZoneId":16620,"instanceId":null,"name":"Alcaz Prison","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
+{"questId":"96772","title":"The Dragon's Journal","minLevel":46,"faction":"alliance"}
 ]},
 {"id":"blackmaw-hold","wowheadZoneId":16554,"instanceId":null,"name":"Blackmaw Hold","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
+{"questId":"92344","title":"Get to the Roots of It","minLevel":45,"faction":"alliance"},
+{"questId":"97198","title":"Blackmaw Magic","minLevel":52,"faction":"horde"}
 ]},
 {"id":"city-of-dalaran","wowheadZoneId":16544,"altWowheadZoneIds":[16560],"instanceId":null,"name":"City of Dalaran","kind":"dungeon","levelRange":null,"players":5,"quests":[
 {"questId":"92456","title":"A Green Sample","minLevel":24,"faction":"alliance"},
@@ -401,11 +320,11 @@
 {"questId":"96984","title":"Heart of Disruption","minLevel":24,"faction":"horde"},
 {"questId":"96986","title":"The Grave Knight","minLevel":24,"faction":"horde"},
 {"questId":"96987","title":"Opportunistic Education","minLevel":24,"faction":"horde"},
-{"questId":"96988","title":"Source of Power","minLevel":24,"faction":"horde"}
+{"questId":"96988","title":"Source of Power","minLevel":24,"faction":"horde"},
+{"questId":"96609","title":"A Taste of Home","minLevel":44,"faction":"alliance"},
+{"questId":"96603","title":"Unstable Magic","minLevel":48,"faction":"alliance"}
 ]},
-{"id":"excavation-site-bael-modan","wowheadZoneId":16619,"instanceId":null,"name":"Excavation Site - Bael Modan","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
-]},
+{"id":"excavation-site-bael-modan","wowheadZoneId":16619,"instanceId":null,"name":"Excavation Site - Bael Modan","kind":"dungeon","levelRange":null,"players":5,"quests":[]},
 {"id":"excavation-site-wetlands","wowheadZoneId":16732,"instanceId":null,"name":"Excavation Site: Wetlands","kind":"dungeon","levelRange":null,"players":5,"quests":[
 {"questId":"95646","title":"Horrors in the Highland","minLevel":24,"faction":"alliance"},
 {"questId":"95647","title":"Lost in the Thicket Things","minLevel":24,"faction":"alliance"},
@@ -422,30 +341,34 @@
 {"questId":"98823","title":"Earthen Echo","minLevel":24,"faction":"horde"},
 {"questId":"98824","title":"Prehistoric Prism","minLevel":24,"faction":"alliance"}
 ]},
-{"id":"hillsbrad-foothills","wowheadZoneId":16562,"instanceId":null,"name":"Hillsbrad Foothills","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
-]},
-{"id":"karazhan-crypts","wowheadZoneId":16074,"instanceId":null,"name":"Karazhan Crypts","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
-]},
+{"id":"hillsbrad-foothills","wowheadZoneId":16562,"instanceId":null,"name":"Hillsbrad Foothills","kind":"dungeon","levelRange":null,"players":5,"quests":[]},
+{"id":"karazhan-crypts","wowheadZoneId":16074,"instanceId":null,"name":"Karazhan Crypts","kind":"dungeon","levelRange":null,"players":5,"quests":[]},
 {"id":"krol-dok-stronghold","wowheadZoneId":16842,"instanceId":null,"name":"Krol'dok Stronghold","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
+{"questId":"94968","title":"Eye of Mugg","minLevel":40,"faction":"horde"},
+{"questId":"96771","title":"Vengeance of the Highborne","minLevel":37,"faction":"alliance"},
+{"questId":"94982","title":"Eye of Mugg","minLevel":40,"faction":"alliance"},
+{"questId":"94984","title":"Tome of Twilight","minLevel":39,"faction":"alliance"},
+{"questId":"94972","title":"Tome of Twilight","minLevel":39,"faction":"horde"},
+{"questId":"94975","title":"A Token of Vengeance","minLevel":38,"faction":"horde"},
+{"questId":"94983","title":"Twilight Mementos","minLevel":38,"faction":"alliance"},
+{"questId":"94980","title":"Krol'dok Moulding","minLevel":38,"faction":"alliance"},
+{"questId":"94981","title":"Key Ingredients","minLevel":38,"faction":"alliance"},
+{"questId":"94998","title":"Curios of Curiosity","minLevel":38,"faction":"alliance"},
+{"questId":"94973","title":"Krol'dok Moulding","minLevel":38,"faction":"horde"},
+{"questId":"94974","title":"Key Ingredients","minLevel":38,"faction":"horde"},
+{"questId":"94997","title":"Lingering Essence","minLevel":38,"faction":"alliance"}
 ]},
-{"id":"manor-mistmantle","wowheadZoneId":17191,"instanceId":null,"name":"Manor Mistmantle","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
-]},
+{"id":"manor-mistmantle","wowheadZoneId":17191,"instanceId":null,"name":"Manor Mistmantle","kind":"dungeon","levelRange":null,"players":5,"quests":[]},
 {"id":"ruins-of-lordaeron","wowheadZoneId":16611,"instanceId":null,"name":"Ruins of Lordaeron","kind":"dungeon","levelRange":null,"players":5,"quests":[
 {"questId":"92401","title":"A Frightened Request","minLevel":15,"faction":"horde"},
 {"questId":"92415","title":"Remember That I Love You","minLevel":15,"faction":"alliance"},
 {"questId":"92421","title":"Light's Justice","minLevel":15,"faction":"horde"},
 {"questId":"92422","title":"The Wrath of Rath'mael","minLevel":15,"faction":"horde"},
-{"questId":"92459","title":"Friend of the Kirin Tor","minLevel":24,"faction":"alliance"},
 {"questId":"95189","title":"Crest of Lordaeron","minLevel":16,"faction":"alliance"},
 {"questId":"95195","title":"Bloodied Insignia","minLevel":16,"faction":"alliance"},
 {"questId":"95204","title":"Crest of Lordaeron","minLevel":16,"faction":"horde"},
 {"questId":"95216","title":"The New Plague","minLevel":16,"faction":"horde"},
 {"questId":"95250","title":"Abominable Creatures","minLevel":16,"faction":"alliance"},
-{"questId":"97287","title":"Shrewd Negotiations","minLevel":24,"faction":"horde"},
 {"questId":"97288","title":"Unending Torment","minLevel":16,"faction":"horde"},
 {"questId":"97289","title":"Unending Torment","minLevel":16,"faction":"horde"},
 {"questId":"97291","title":"Unending Torment","minLevel":16,"faction":"horde"},
@@ -456,7 +379,10 @@
 {"questId":"95776","title":"The Only Good Brinescale...","minLevel":30,"faction":"horde"},
 {"questId":"95787","title":"Take Two With Water","minLevel":30,"faction":"alliance"},
 {"questId":"95788","title":"Magics of the Drowned City","minLevel":30,"faction":"alliance"},
-{"questId":"96774","title":"Ancient Gurubashi Idol","minLevel":30,"faction":"horde"}
+{"questId":"96774","title":"Ancient Gurubashi Idol","minLevel":30,"faction":"horde"},
+{"questId":"97130","title":"Ancient Gurubashi Secrets","minLevel":34,"faction":"alliance"},
+{"questId":"95791","title":"The Saltseer Captain","minLevel":34,"faction":"both"},
+{"questId":"95789","title":"Shady Saltseers","minLevel":34,"faction":"both"}
 ]},
 {"id":"hall-of-thanes","wowheadZoneId":16919,"instanceId":null,"name":"The Hall of Thanes","kind":"dungeon","levelRange":null,"players":5,"quests":[
 {"questId":"96393","title":"Old Ironforge Incursion","minLevel":9,"faction":"alliance"},
@@ -464,9 +390,7 @@
 {"questId":"96395","title":"An Ancient Grudge","minLevel":10,"faction":"both"},
 {"questId":"96403","title":"Important Heirlooms","minLevel":10,"faction":"alliance"}
 ]},
-{"id":"shaper-s-terrace","wowheadZoneId":16667,"instanceId":null,"name":"The Shaper's Terrace","kind":"dungeon","levelRange":null,"players":5,"quests":[
-
-]},
+{"id":"shaper-s-terrace","wowheadZoneId":16667,"instanceId":null,"name":"The Shaper's Terrace","kind":"dungeon","levelRange":null,"players":5,"quests":[]},
 {"id":"blackrock-spire","wowheadZoneId":1583,"altWowheadZoneIds":[17804],"instanceId":229,"name":"Blackrock Spire","kind":"raid","levelRange":[55,60],"players":10,"quests":[
 {"questId":"4701","title":"Put Her Down","minLevel":55,"faction":"alliance"},
 {"questId":"4724","title":"The Pack Mistress","minLevel":55,"faction":"horde"},
@@ -496,33 +420,15 @@
 {"questId":"5081","title":"Maxwell's Mission","minLevel":55,"faction":"alliance"},
 {"questId":"5089","title":"General Drakkisath's Command","minLevel":55,"faction":"alliance"},
 {"questId":"5102","title":"General Drakkisath's Demise","minLevel":55,"faction":"alliance"},
-{"questId":"5103","title":"Hot Fiery Death","minLevel":55,"faction":"both"},
 {"questId":"5127","title":"The Demon Forge","minLevel":55,"faction":"both"},
 {"questId":"5160","title":"The Matron Protectorate","minLevel":57,"faction":"both"},
 {"questId":"6502","title":"Drakefire Amulet","minLevel":50,"faction":"alliance"},
 {"questId":"6569","title":"Oculus Illusions","minLevel":55,"faction":"horde"},
 {"questId":"6602","title":"Blood of the Black Dragon Champion","minLevel":55,"faction":"horde"},
 {"questId":"7761","title":"Blackhand's Command","minLevel":55,"faction":"both"},
-{"questId":"8644","title":"Stonefort the Elder","minLevel":1,"faction":"both"},
-{"questId":"8951","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8952","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8953","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"8954","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8955","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8956","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8957","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"8958","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
-{"questId":"8959","title":"Anthion's Parting Words","minLevel":58,"faction":"alliance"},
 {"questId":"8966","title":"The Left Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
 {"questId":"8989","title":"The Right Piece of Lord Valthalak's Amulet","minLevel":58,"faction":"both"},
-{"questId":"8995","title":"Mea Culpa, Lord Valthalak","minLevel":58,"faction":"both"},
-{"questId":"8996","title":"Return to Bodley","minLevel":58,"faction":"both"},
-{"questId":"9016","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9017","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9019","title":"Anthion's Parting Words","minLevel":58,"faction":"both"},
-{"questId":"9020","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9021","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"},
-{"questId":"9022","title":"Anthion's Parting Words","minLevel":58,"faction":"horde"}
+{"questId":"8995","title":"Mea Culpa, Lord Valthalak","minLevel":58,"faction":"both"}
 ]},
 {"id":"temple-of-ahn-qiraj","wowheadZoneId":3428,"instanceId":531,"name":"Temple of Ahn'Qiraj","kind":"raid","levelRange":[60,60],"players":40,"altWowheadZoneIds":[16076],"quests":[
 {"questId":"8544","title":"Conqueror's Spaulders","minLevel":60,"faction":"both"},
@@ -806,10 +712,6 @@
 {"questId":"9209","title":"The Savage Guard - Arcanum of Rapidity","minLevel":58,"faction":"both"},
 {"questId":"9210","title":"The Savage Guard - Arcanum of Focus","minLevel":58,"faction":"both"}
 ]},
-{"id":"mount-hyjal","wowheadZoneId":16004,"instanceId":null,"name":"Mount Hyjal","kind":"raid","levelRange":null,"players":40,"quests":[
-
-]},
-{"id":"onyxia-s-lair","wowheadZoneId":2159,"instanceId":249,"name":"Onyxia's Lair","kind":"raid","levelRange":null,"players":40,"quests":[
-
-]}
+{"id":"mount-hyjal","wowheadZoneId":16004,"instanceId":null,"name":"Mount Hyjal","kind":"raid","levelRange":null,"players":40,"quests":[]},
+{"id":"onyxia-s-lair","wowheadZoneId":2159,"instanceId":249,"name":"Onyxia's Lair","kind":"raid","levelRange":null,"players":40,"quests":[]}
 ]}
