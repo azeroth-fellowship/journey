@@ -145,6 +145,14 @@ describe('dungeon events and progress', () => {
     expect(factionOfRace('gnome')).toBe('alliance');
   });
 
+  it('shows same-titled variants of one quest as a single row, done when any variant is', () => {
+    const lord = (done: string[]) => dungeonQuestStatus('name:ruins-of-lordaeron', done, DUNGEON_CATALOG, 'horde');
+    expect(lord([])).toHaveLength(6);
+    expect(lord([]).filter((q) => q.title === 'Unending Torment')).toHaveLength(1);
+    expect(lord(['97291']).find((q) => q.title === 'Unending Torment')?.done).toBe(true);
+    expect(dungeonQuestStatus('43', [], DUNGEON_CATALOG, 'horde').filter((q) => q.title === 'The Glowing Shard')).toHaveLength(1);
+  });
+
   it('isDungeonCompleted: event or catalog final boss', () => {
     const p = { dungeonId: 'i-1', bossesKilled: ["Rhahk'Zor"], completions: 0 };
     expect(isDungeonCompleted(p, {})).toBe(false);
