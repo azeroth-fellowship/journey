@@ -327,7 +327,16 @@ function StatusContainer({ deviceToken, deviceId, paused, updater, flushRef, ...
   const liveOn = rest.shareLive && !paused;
   useEffect(() => {
     if (!liveOn) return;
-    const handle = connectLiveSync(API_BASE_URL, () => tokenRef.current, () => activeRef.current, () => liveOn);
+    const api = new ApiClient({ baseUrl: API_BASE_URL, getToken: () => tokenRef.current });
+    const handle = connectLiveSync(API_BASE_URL, () => tokenRef.current, () => activeRef.current, () => liveOn, async (p) => {
+      if (!p.userId) return;
+      const now = Date.now();
+      await api.upsertPresence({
+        characterId: p.characterId, userId: p.userId, isOnline: true,
+        ...(p.zone ? { zone: p.zone } : {}), ...(p.level ? { level: p.level } : {}),
+        expiresAt: new Date(now + 60_000).toISOString(), updatedAt: new Date(now).toISOString(),
+      });
+    });
     return () => handle.close();
   }, [liveOn]);
 
