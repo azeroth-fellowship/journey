@@ -38,7 +38,7 @@ export interface SyncResult {
   /** Per-step failures; those steps are retried on the next round. */
   errors: string[];
   /** The character seen most recently (by updatedAt); the one the live heartbeat reports. */
-  active?: { characterId: string; zone?: string; level?: number };
+  active?: { characterId: string; userId?: string; zone?: string; level?: number };
 }
 
 const STORAGE_KEY = 'azeroth.syncState';
@@ -97,7 +97,7 @@ export async function syncSavedVariables(deps: {
   for (const b of q.batches) for (const e of b.events) known.add(e.id);
 
   const newest = [...mapped.characters].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
-  if (newest) result.active = { characterId: newest.id, ...(newest.zone ? { zone: newest.zone } : {}), ...(newest.level ? { level: newest.level } : {}) };
+  if (newest) result.active = { characterId: newest.id, ...(state.userId ? { userId: state.userId } : {}), ...(newest.zone ? { zone: newest.zone } : {}), ...(newest.level ? { level: newest.level } : {}) };
 
   for (const character of mapped.characters) {
     const fresh = mapped.events.filter((e) => e.characterId === character.id && !isSettled(q, e, known));

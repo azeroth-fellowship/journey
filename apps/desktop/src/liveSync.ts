@@ -7,6 +7,8 @@ export interface LiveSyncHandle {
 /** What the companion tells the API about the character being played. */
 export interface LivePresence {
   characterId: string;
+  /** Needed only for the HTTP fallback; the websocket takes the owner from its authentication. */
+  userId?: string;
   zone?: string;
   level?: number;
 }
@@ -14,11 +16,11 @@ export interface LivePresence {
 export const HEARTBEAT_MS = 20_000;
 const RECONNECT_MS = 5_000;
 
-/** Convert an http(s) base URL to a ws(s) URL for the API's /ws endpoint. */
+/** Convert an http(s) base URL to a ws(s) URL for the API's /ws endpoint, keeping any path prefix (e.g. `/api`). */
 export function wsUrl(baseUrl: string): string {
   const u = new URL(baseUrl);
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
-  u.pathname = '/ws';
+  u.pathname = `${u.pathname.replace(/\/+$/, '')}/ws`;
   u.search = '';
   return u.toString();
 }
@@ -34,6 +36,8 @@ export function connectLiveSync(
   getToken: () => string | undefined,
   getPresence: () => LivePresence | undefined,
   active: () => boolean,
+  /** Used for a heartbeat while no socket is open (e.g. a proxy that cannot carry WebSockets). */
+  fallback?: (p: LivePresence) => Promise<void>,
 ): LiveSyncHandle {
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -42,8 +46,12 @@ export function connectLiveSync(
 
   const beat = () => {
     const p = getPresence();
-    if (!p || !socket || socket.readyState !== 1) return;
-    try { socket.send(JSON.stringify({ type: 'presence', ...p })); } catch { /* the close handler reconnects */ }
+    if (!p || !active()) return;
+    if (socket && socket.readyState === 1) {
+      try { socket.send(JSON.stringify({ type: 'presence', ...p })); } catch { /* the close handler reconnects */ }
+    } else if (fallback) {
+      void fallback(p).catch(() => {});
+    }
   };
 
   const stopBeat = () => { if (beatTimer) clearInterval(beatTimer); beatTimer = undefined; };
@@ -68,13 +76,14 @@ export function connectLiveSync(
     s.onopen = () => {
       s.send(JSON.stringify({ type: 'auth', token }));
       beat();
-      stopBeat();
-      beatTimer = setInterval(beat, HEARTBEAT_MS);
     };
-    s.onclose = () => { stopBeat(); if (socket === s) socket = null; scheduleReconnect(); };
+    s.onclose = () => { if (socket === s) socket = null; scheduleReconnect(); };
     s.onerror = () => { try { s.close(); } catch { /* ignore */ } };
   }
 
+  // One heartbeat for the whole lifetime: over the socket when it is open, else over the fallback.
+  beatTimer = setInterval(beat, HEARTBEAT_MS);
+  beat();
   connect();
 
   return {
