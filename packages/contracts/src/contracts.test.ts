@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, it, expect } from 'vitest';
-import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, factionOfRace, CATALOG_QUEST_IDS, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
+import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, factionOfRace, catalogEntryFor, CATALOG_QUEST_IDS, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
 
 describe('JourneyEvent schema', () => {
   it('parses a level_up event', () => {
@@ -117,6 +117,22 @@ describe('dungeon events and progress', () => {
     expect(p.map((d) => d.dungeonId)).toEqual([rfc]);
     expect(p[0]!.questsCompleted.map((q) => q.questId).sort()).toEqual(['5722', '5723']);
     expect(CATALOG_QUEST_IDS).toContain('5761');
+  });
+
+  it('finds the catalog entry by name when the row carries an id the catalog does not key', () => {
+    const byId = dungeonQuestStatus('name:ruins-of-lordaeron', [], DUNGEON_CATALOG);
+    expect(byId.length).toBeGreaterThan(0);
+    expect(dungeonQuestStatus('99999', [], DUNGEON_CATALOG, undefined, 'Ruins of Lordaeron')).toEqual(byId);
+    expect(dungeonQuestStatus('99999', [], DUNGEON_CATALOG)).toEqual([]);
+    expect(catalogEntryFor('99999', 'No Such Place')).toBeUndefined();
+  });
+
+  it('keeps instance quest lists to Wowhead\'s dungeon-quest page (no attunement/placeholder leftovers)', () => {
+    const ids = (d: string) => dungeonQuestStatus(d, []).map((q) => q.questId);
+    expect(ids('name:wailing-caverns')).not.toContain('7944');
+    expect(ids('name:ruins-of-lordaeron')).not.toEqual(expect.arrayContaining(['92459']));
+    for (const d of ['name:dire-maul', 'name:stratholme', 'name:scholomance']) expect(ids(d)).not.toContain('8951');
+    for (const d of Object.values(DUNGEON_CATALOG)) for (const q of d.quests ?? []) expect(q.title.startsWith('<')).toBe(false);
   });
 
   it('dungeonQuestStatus can leave out the other faction', () => {
