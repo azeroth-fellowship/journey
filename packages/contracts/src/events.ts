@@ -37,6 +37,11 @@ export const QuestCompletedPayload = z.object({
   dungeonId: z.string().min(1).optional(),
   dungeonName: z.string().min(1).optional(),
   instanceKind: InstanceKind.optional(),
+  /**
+   * Read from the client's completed-quest flags at login (a quest finished before the addon was installed), not seen
+   * being turned in. It counts toward dungeon progress only: it is not a timeline entry or a session count.
+   */
+  backfilled: z.boolean().optional(),
 });
 
 export const ZoneChangedPayload = z.object({

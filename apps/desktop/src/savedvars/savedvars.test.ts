@@ -155,6 +155,17 @@ describe('mapSavedVariables dungeon events', () => {
   });
 });
 
+describe('mapSavedVariables backfilled quests', () => {
+  it('keeps the backfilled flag on a quest turned in before the addon was installed', () => {
+    const t = `AzerothJourneyDB = { ["events"] = { {
+      ["id"] = "evt-${S1}-1", ["characterId"] = "Thrall-Area 52", ["sessionId"] = "${S1}", ["occurredAt"] = "2026-10-01T10:00:00Z",
+      ["type"] = "quest_completed", ["source"] = "addon", ["payload"] = { ["questId"] = "5722", ["questName"] = "Searching for the Lost Satchel", ["backfilled"] = true },
+    } }, ["characters"] = {} }`;
+    const e = mapSavedVariables([t], U).events[0]!;
+    expect(e.type === 'quest_completed' && e.payload.backfilled).toBe(true);
+  });
+});
+
 describe('mapSavedVariables', () => {
   const m = mapSavedVariables([FIXTURE], U);
 

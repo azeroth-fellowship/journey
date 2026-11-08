@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { RAIDS_VISIBLE, isRaidEvent, visibleDungeons, FOREVER_INSTANCES, DUNGEON_CATALOG, dungeonIdFor, dungeonQuestStatus, completedQuestIds, factionOfRace, catalogEntryFor, CATALOG_QUEST_IDS, JourneyEvent, UploadBatchRequest, Character, DungeonProgressResponse, buildDungeonProgress, isDungeonCompleted } from './index';
 
 describe('JourneyEvent schema', () => {
@@ -216,5 +217,19 @@ describe('forever dungeon catalog', () => {
     const p = buildDungeonProgress([ev('1', '10:00:00', 'dungeon_entered', { dungeonId: '409', dungeonName: 'Molten Core', instanceKind: 'raid' })]);
     expect(p[0]?.kind).toBe('raid');
     expect(buildDungeonProgress([ev('1', '10:00:00', 'dungeon_entered', { dungeonId: '409', dungeonName: 'Molten Core' })])[0]?.kind).toBe('raid');
+  });
+});
+
+describe('addon quest backfill table', () => {
+  it('lists exactly the catalog quests (regenerate with node apps/addon/scripts/gen-quests.mjs)', () => {
+    const src = readFileSync(new URL('../../../apps/addon/src/main.wowlua', import.meta.url), 'utf8');
+    const block = src.slice(src.indexOf('-- BEGIN GENERATED QUESTS'), src.indexOf('-- END GENERATED QUESTS'));
+    const ids = [...block.matchAll(/^\s+\[(\d+)\] = /gm)].map((m) => m[1]!);
+    expect(new Set(ids)).toEqual(new Set(CATALOG_QUEST_IDS));
+  });
+
+  it('accepts a backfilled quest_completed event', () => {
+    const e = { id: 'e1', characterId: 'c', sessionId: 's', occurredAt: '2026-11-08T10:00:00Z', type: 'quest_completed', source: 'addon', payload: { questId: '5722', questName: 'x', backfilled: true } };
+    expect(JourneyEvent.parse(e).type).toBe('quest_completed');
   });
 });
