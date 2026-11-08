@@ -250,9 +250,20 @@ export function dungeonQuestStatus(
   dungeonName?: string,
 ): DungeonQuestStatus[] {
   const done = new Set(completedQuestIds);
-  return (catalogEntryFor(dungeonId, dungeonName, catalog)?.quests ?? [])
-    .filter((q) => !faction || q.faction === 'both' || q.faction === faction)
-    .map((q) => ({ ...q, done: done.has(q.questId) }));
+  const rows: DungeonQuestStatus[] = [];
+  const byTitle = new Map<string, DungeonQuestStatus>();
+  for (const q of catalogEntryFor(dungeonId, dungeonName, catalog)?.quests ?? []) {
+    if (faction && q.faction !== 'both' && q.faction !== faction) continue;
+    // Wowhead lists one quest under several ids (one per chain step or variant, e.g. Unending Torment x4); the
+    // player sees and hands in one, so same-titled quests are one row, done when any variant is.
+    const key = norm(q.title);
+    const seen = byTitle.get(key);
+    if (seen) { seen.done = seen.done || done.has(q.questId); continue; }
+    const row = { ...q, done: done.has(q.questId) };
+    byTitle.set(key, row);
+    rows.push(row);
+  }
+  return rows;
 }
 
 /** Ids of every quest a character has turned in, from its events (any dungeon or none). */
